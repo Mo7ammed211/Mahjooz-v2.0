@@ -865,6 +865,28 @@ window.signupSendOTP = async function() {
   
   const formattedPhone = typeof formatPhoneNumber === 'function' ? formatPhoneNumber(phone) : phone;
   
+  showLoader('جاري التحقق من رقم الهاتف...');
+  try {
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const snap1 = await db.collection('users').where('phone', '==', phone).limit(1).get();
+    let isDup = !snap1.empty;
+    if (!isDup && cleanPhone !== phone) {
+      const snap2 = await db.collection('users').where('phone', '==', cleanPhone).limit(1).get();
+      isDup = !snap2.empty;
+    }
+    if (!isDup && formattedPhone !== phone && formattedPhone !== cleanPhone) {
+      const snap3 = await db.collection('users').where('phone', '==', formattedPhone).limit(1).get();
+      isDup = !snap3.empty;
+    }
+    if (isDup) {
+      hideLoader();
+      toast('رقم الجوال هذا مسجل بالفعل في حساب آخر. لا يمكن إنشاء أكثر من حساب بنفس الرقم.', 'error');
+      return;
+    }
+  } catch (checkErr) {
+    console.warn('Error checking phone uniqueness:', checkErr);
+  }
+
   // Prepare reCAPTCHA container
   let container = document.getElementById('recaptcha-container');
   if (!container) {
@@ -1042,6 +1064,41 @@ async function doSignup() {
     if (pass2El && data.pass !== pass2El.value) {
       toast('كلمتا المرور غير متطابقتين', 'error'); return;
     }
+  }
+
+  // Check duplicate email and phone
+  try {
+    if (data.email) {
+      const checkEmail = data.email.trim().toLowerCase();
+      const emailSnap = await db.collection('users').where('email', '==', checkEmail).limit(1).get();
+      if (!emailSnap.empty) {
+        toast('البريد الإلكتروني هذا مسجل بالفعل في حساب آخر.', 'error');
+        return;
+      }
+    }
+
+    if (data.phone) {
+      const checkPhone = data.phone.trim();
+      const cleanPhone = checkPhone.replace(/[\s\-\(\)]/g, '');
+      const formattedPhone = typeof formatPhoneNumber === 'function' ? formatPhoneNumber(checkPhone) : checkPhone;
+      
+      const snap1 = await db.collection('users').where('phone', '==', checkPhone).limit(1).get();
+      let isDup = !snap1.empty;
+      if (!isDup && cleanPhone !== checkPhone) {
+        const snap2 = await db.collection('users').where('phone', '==', cleanPhone).limit(1).get();
+        isDup = !snap2.empty;
+      }
+      if (!isDup && formattedPhone !== checkPhone && formattedPhone !== cleanPhone) {
+        const snap3 = await db.collection('users').where('phone', '==', formattedPhone).limit(1).get();
+        isDup = !snap3.empty;
+      }
+      if (isDup) {
+        toast('رقم الجوال هذا مسجل بالفعل في حساب آخر. لا يمكن إنشاء أكثر من حساب بنفس الرقم.', 'error');
+        return;
+      }
+    }
+  } catch (checkErr) {
+    console.warn('Error checking email/phone uniqueness during registration:', checkErr);
   }
 
   showLoader('جاري إنشاء حسابك...');

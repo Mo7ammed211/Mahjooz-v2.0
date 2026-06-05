@@ -421,12 +421,46 @@ window.ph9_startPhoneChange = function () {
   `);
 };
 
-window.ph9_sendPhoneOTP = function () {
+window.ph9_sendPhoneOTP = async function () {
   const phone = document.getElementById('ph9-new-phone').value.trim();
   if (!phone || phone.length < 7) { toast('أدخل رقم هاتف صالح', 'error'); return; }
+  
+  showLoader('جاري التحقق من رقم الهاتف...');
+  try {
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const formattedPhone = typeof formatPhoneNumber === 'function' ? formatPhoneNumber(phone) : phone;
+    const currentUid = State.currentUser?.uid;
+    
+    const snap1 = await db.collection('users').where('phone', '==', phone).limit(1).get();
+    let isDup = false;
+    if (!snap1.empty && snap1.docs[0].id !== currentUid) {
+      isDup = true;
+    }
+    if (!isDup && cleanPhone !== phone) {
+      const snap2 = await db.collection('users').where('phone', '==', cleanPhone).limit(1).get();
+      if (!snap2.empty && snap2.docs[0].id !== currentUid) {
+        isDup = true;
+      }
+    }
+    if (!isDup && formattedPhone !== phone && formattedPhone !== cleanPhone) {
+      const snap3 = await db.collection('users').where('phone', '==', formattedPhone).limit(1).get();
+      if (!snap3.empty && snap3.docs[0].id !== currentUid) {
+        isDup = true;
+      }
+    }
+    if (isDup) {
+      hideLoader();
+      toast('رقم الجوال هذا مسجل بالفعل في حساب آخر.', 'error');
+      return;
+    }
+  } catch (checkErr) {
+    console.warn('Error checking phone uniqueness in settings:', checkErr);
+  }
+  
   window.__ph9_changeOTP = String(Math.floor(1000 + Math.random() * 9000));
   window.__ph9_changePending = phone;
   document.getElementById('ph9-phone-otp-row').style.display = 'block';
+  hideLoader();
   toast('تم إرسال رمز التحقق إلى رقم هاتفك.', 'info');
 };
 
