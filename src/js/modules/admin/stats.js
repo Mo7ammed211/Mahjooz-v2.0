@@ -185,7 +185,9 @@ function injectNotifBell() {
 // ─── DRILL-DOWN STATS — override renderAdminDash ──────
 function renderAdminDash() {
   const users = AppData.users || [];
-  const orders = AppData.orders || [];
+  const activeOrders = AppData.orders || [];
+  const archivedOrders = AppData.archivedOrders || [];
+  const orders = [...activeOrders, ...archivedOrders];
   const transactions = AppData.transactions || [];
   const rechargeReqs = AppData.rechargeReqs || [];
 
@@ -396,7 +398,7 @@ function __legacy_renderAdmin() {
     const isAdmin = u.role === 'admin';
 
     // Ensure AppData is ready
-    const orders = AppData.orders || [];
+    const orders = [...(AppData.orders || []), ...(AppData.archivedOrders || [])];
     const services = AppData.services || [];
     const users = AppData.users || [];
 
@@ -432,7 +434,6 @@ function __legacy_renderAdmin() {
       { k:'signup_settings', ic:'📝', l:'حقول التسجيل', perm:null, adminOnly:true },
       { k:'login_settings',ic:'🔑', l:'إعدادات الدخول', perm:null, adminOnly:true },
       { k:'ph17settings', ic:'⚙️', l:'الإعدادات العامة', perm:null, adminOnly:true },
-      { k:'regions',      ic:'📍', l:'المناطق والمدن', perm:null, adminOnly:true },
       { k:'cms_texts',    ic:'🔤', l:'النصوص والأيقونات', perm:null, adminOnly:true },
       { k:'cms_pages',    ic:'📄', l:'الصفحات الثابتة', perm:null, adminOnly:true },
       { k:'delivery_pricing',   ic:'🚚', l:'أسعار التوصيل', perm:null, adminOnly:true },
@@ -475,7 +476,7 @@ function __legacy_renderAdmin() {
     else if (adminTab==='reports')     content = typeof renderAdminReports === 'function' ? renderAdminReports() : fallback('renderAdminReports');
     else if (adminTab==='delivery_pricing')   content = typeof renderAdminDeliveryPricing   === 'function' ? renderAdminDeliveryPricing()   : fallback('renderAdminDeliveryPricing');
     else if (adminTab==='delivery_addresses') content = typeof renderAdminDeliveryAddresses === 'function' ? renderAdminDeliveryAddresses() : fallback('renderAdminDeliveryAddresses');
-    else if (adminTab==='direct_routing')       content = typeof renderAdminDirectRouting       === 'function' ? renderAdminDirectRouting()       : fallback('renderAdminDirectRouting');
+    else if (adminTab==='direct_routing')       content = typeof ph18_renderLiveRouting       === 'function' ? ph18_renderLiveRouting()       : fallback('ph18_renderLiveRouting');
     else if (adminTab==='providers_database')   content = typeof renderAdminProvidersDatabase   === 'function' ? renderAdminProvidersDatabase()   : fallback('renderAdminProvidersDatabase');
     else if (adminTab==='drivers_database')     content = typeof renderAdminDriversDatabase     === 'function' ? renderAdminDriversDatabase()     : fallback('renderAdminDriversDatabase');
     else if (adminTab.startsWith('rental_stores_')) content = typeof _renderRentalStoresTab === 'function' ? _renderRentalStoresTab(adminTab.replace('rental_stores_','')) : fallback('_renderRentalStoresTab');
@@ -889,6 +890,10 @@ async function savePerms(userId) {
 function showAdjustWalletModal(userId) {
   const u = AppData.users.find(x => x.id === userId);
   if (!u) return;
+  if (['admin', 'super_admin', 'staff', 'cs'].includes(u.role)) {
+    toast('لا يمكن تعديل محفظة مستخدم إداري أو موظف', 'error');
+    return;
+  }
   const w = AppData.wallets ? (AppData.wallets[u.id || u.uid]?.balance || 0) : 0;
   openModal(`
     <div class="modal-header"><h2 class="modal-title">⚖️ تعديل رصيد ${escHtml(u.name)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
@@ -956,7 +961,7 @@ function buildInvoiceText(o) {
 }
 
 function shareInvoiceWA(orderId) {
-  const o = AppData.orders.find(x => x.id === orderId);
+  const o = AppData.orders.find(x => x.id === orderId) || (AppData.archivedOrders || []).find(x => x.id === orderId);
   if (!o) return;
   const txt = encodeURIComponent(buildInvoiceText(o));
   const cust = AppData.users.find(u => u.id === o.customerId || u.uid === o.customerId);
@@ -966,7 +971,7 @@ function shareInvoiceWA(orderId) {
 }
 
 function shareInvoiceEmail(orderId) {
-  const o = AppData.orders.find(x => x.id === orderId);
+  const o = AppData.orders.find(x => x.id === orderId) || (AppData.archivedOrders || []).find(x => x.id === orderId);
   if (!o) return;
   const cust = AppData.users.find(u => u.id === o.customerId || u.uid === o.customerId);
   const subject = encodeURIComponent(`فاتورة محجوز — ${o.orderId}`);
@@ -978,7 +983,7 @@ function shareInvoiceEmail(orderId) {
 // Override showInvoice to add the share buttons
 const __originalShowInvoice = typeof showInvoice === 'function' ? showInvoice : null;
 function showInvoice(orderId) {
-  const o = AppData.orders.find(x => x.id === orderId);
+  const o = AppData.orders.find(x => x.id === orderId) || (AppData.archivedOrders || []).find(x => x.id === orderId);
   if (!o) return;
   const sLabel = { pending:'⏳ بانتظار القبول', accepted:'✅ تم القبول', with_driver:'🚗 مع المندوب', delivered:'📦 تم التوصيل', completed:'🎉 مكتمل', cancelled:'❌ ملغي' };
   openModal(`
@@ -1743,12 +1748,17 @@ window.dp_openAddZoneModal = function() {
     <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
       <div class="form-group">
         <label class="form-label">المحافظة التابعة لها <span style="color:#ef4444">*</span></label>
-        <select class="form-control" id="dp-zone-govid">
+        <select class="form-control" id="dp-zone-govid" onchange="dp_onZoneGovSelectChange(this.value)">
           <option value="">— اختر المحافظة —</option>
           ${govs.filter(g => g.active !== false).map(g => `
             <option value="${g.id}" ${g.id === selectedGovId ? 'selected' : ''}>${escHtml(g.name)}</option>
           `).join('')}
+          <option value="new_gov" style="color:var(--primary); font-weight:bold;">+ إضافة محافظة جديدة...</option>
         </select>
+        <div id="dp-zone-newgov-container" style="display:none; margin-top: 10px; border: 1px dashed rgba(139,92,246,0.3); padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.01);">
+          <label class="form-label" style="font-size:12px; margin-bottom:4px;">اسم المحافظة الجديدة <span style="color:#ef4444">*</span></label>
+          <input class="form-control" id="dp-zone-newgov-name" placeholder="مثال: حضرموت، عدن، صنعاء...">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">اسم المنطقة <span style="color:#ef4444">*</span></label>
@@ -1770,12 +1780,17 @@ window.dp_openEditZoneModal = function(id) {
     <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
       <div class="form-group">
         <label class="form-label">المحافظة التابعة لها <span style="color:#ef4444">*</span></label>
-        <select class="form-control" id="dp-zone-govid">
+        <select class="form-control" id="dp-zone-govid" onchange="dp_onZoneGovSelectChange(this.value)">
           <option value="">— اختر المحافظة —</option>
           ${govs.filter(g => g.active !== false).map(g => `
             <option value="${g.id}" ${g.id === z.govId ? 'selected' : ''}>${escHtml(g.name)}</option>
           `).join('')}
+          <option value="new_gov" style="color:var(--primary); font-weight:bold;">+ إضافة محافظة جديدة...</option>
         </select>
+        <div id="dp-zone-newgov-container" style="display:none; margin-top: 10px; border: 1px dashed rgba(139,92,246,0.3); padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.01);">
+          <label class="form-label" style="font-size:12px; margin-bottom:4px;">اسم المحافظة الجديدة <span style="color:#ef4444">*</span></label>
+          <input class="form-control" id="dp-zone-newgov-name" placeholder="مثال: حضرموت، عدن...">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">اسم المنطقة</label>
@@ -1798,16 +1813,42 @@ window.dp_openEditZoneModal = function(id) {
     </div>`);
 };
 
+window.dp_onZoneGovSelectChange = function(val) {
+  const container = document.getElementById('dp-zone-newgov-container');
+  if (container) {
+    container.style.display = val === 'new_gov' ? 'block' : 'none';
+  }
+};
+
 window.dp_submitZone = async function(id=null) {
   if (window.__dp_isSavingZone) return;
   const name   = document.getElementById('dp-zone-name')?.value?.trim();
-  const govId  = document.getElementById('dp-zone-govid')?.value || null;
+  let govId  = document.getElementById('dp-zone-govid')?.value || null;
   const active = document.getElementById('dp-zone-active')?.checked ?? true;
   if (!govId) { toast('يرجى تحديد المحافظة','warning'); return; }
-  if (!name) { toast('يرجى إدخال اسم المنطقة','warning'); return; }
+  
   window.__dp_isSavingZone = true;
   showLoader('جاري الحفظ...');
   try {
+    if (govId === 'new_gov') {
+      const newGovName = document.getElementById('dp-zone-newgov-name')?.value?.trim();
+      if (!newGovName) {
+        toast('يرجى إدخال اسم المحافظة الجديدة','warning');
+        window.__dp_isSavingZone = false;
+        hideLoader();
+        return;
+      }
+      const savedGovId = await dp_saveGovernorate({ name: newGovName, active: true }, null);
+      if (!savedGovId || savedGovId === true) {
+        toast('فشل حفظ المحافظة الجديدة','error');
+        window.__dp_isSavingZone = false;
+        hideLoader();
+        return;
+      }
+      govId = savedGovId;
+    }
+    
+    if (!name) { toast('يرجى إدخال اسم المنطقة','warning'); return; }
     const ok = await dp_saveZone({ name, govId, active }, id);
     if (ok) { toast(`✅ تم ${id?'تعديل':'إضافة'} المنطقة`,'success'); closeModal(); await render(); }
     else toast('فشل الحفظ','error');
@@ -2199,9 +2240,17 @@ window.renderAdminDeliveryAddresses = function() {
       <h2 style="margin:0;font-family:'Cairo',sans-serif;font-weight:800;font-size:22px">🗺️ قاعدة بيانات العناوين</h2>
       <p style="color:var(--text-muted);font-size:13px;margin:5px 0 0">إدارة موحّدة لجميع المناطق والعناوين الفرعية — مشتركة بين جميع أنواع المركبات</p>
     </div>
-    <button class="btn btn-primary" onclick="dp_openAddZoneModal();window.__da_refreshOnClose=true">
-      + إضافة منطقة رئيسية
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="dp_openManageGovsModal();window.__da_refreshOnClose=true">
+        ⚙️ إدارة المحافظات
+      </button>
+      <button class="btn btn-secondary" onclick="dp_openAddGovModal();window.__da_refreshOnClose=true">
+        + إضافة محافظة
+      </button>
+      <button class="btn btn-primary" onclick="dp_openAddZoneModal();window.__da_refreshOnClose=true">
+        + إضافة منطقة رئيسية
+      </button>
+    </div>
   </div>
 
   <!-- إحصائيات سريعة -->

@@ -26,7 +26,7 @@ function _adminHubForTab(tab) {
     sys_catalog:'hub_systems', sys_bookings:'hub_systems', sys_professions:'hub_systems', sys_services:'hub_systems',
     sys_stores:'hub_systems', sys_digital:'hub_systems', sys_offers:'hub_systems',
     // ── العمليات والطلبات
-    orders:'hub_ops', ads:'hub_ops', live_tracking:'hub_ops', availability_monitor:'hub_ops', provider_svcs:'hub_ops',
+    orders:'hub_ops', ads:'hub_ops', live_tracking:'hub_ops', availability_monitor:'hub_ops', provider_svcs:'hub_ops', customer_feedback:'hub_ops',
     // ── المالية
     wallet:'hub_finance', wallet_audit:'hub_finance', banks:'hub_finance',
     // ── التسويق والمحتوى
@@ -140,7 +140,13 @@ window.renderAdmin = function () {
     sys_visibility: 'manage_system_visibility',
     orders: 'view_orders',
     live_tracking: 'view_orders',
-    availability_monitor: 'view_orders'
+    availability_monitor: 'view_orders',
+    deposit_docs: 'view_wallets',
+    archived_orders: 'view_orders',
+    platform_agreements: 'manage_settings',
+    audit_logs: 'view_wallets',
+    broadcast_notifications: 'manage_settings',
+    customer_feedback: 'manage_settings'
   };
 
   const hasPerm = (key) => {
@@ -192,10 +198,15 @@ window.renderAdmin = function () {
       id: 'hub_ops', icon: '📦', title: 'العمليات والطلبات',
       items: [
         { k: 'orders',        icon: '📦', label: 'إدارة الطلبات',    desc: 'مراجعة وتتبع جميع الطلبات',       badge: pendingOrders || null, urgent: pendingOrders > 0 },
+        { k: 'archived_orders', icon: '🗄️', label: 'أرشيف الطلبات',   desc: 'الطلبات المكتملة والمرفوضة والملغية المؤرشفة' },
         { k: 'live_tracking', icon: '🗺️', label: 'التتبع المباشر',   desc: 'تتبع المندوبين لحظياً على الخريطة' },
         { k: 'availability_monitor', icon: '📡', label: 'مراقبة الإتاحة', desc: 'حالة المزودين والمندوبين في الخدمة / خارجها' },
         { k: 'provider_svcs', icon: '🛎️', label: 'خدمات المزودين',  desc: 'مراجعة وقبول خدمات المزودين',     badge: pendingSvcs || null, urgent: pendingSvcs > 0 },
         { k: 'ads',           icon: '📣', label: 'الكوبونات والعروض',desc: 'إدارة العروض الترويجية' },
+        { k: 'customer_feedback', icon: '📝', label: 'الاقتراحات والشكاوى', desc: 'استعراض والرد على شكاوى واقتراحات العملاء',
+          badge: (() => { try { return (AppData.customerFeedback||[]).filter(x => x.status === 'new').length || null; } catch(e) { return null; } })(),
+          urgent: (() => { try { return (AppData.customerFeedback||[]).some(x => x.status === 'new'); } catch(e) { return false; } })()
+        },
       ]
     },
     {
@@ -203,14 +214,18 @@ window.renderAdmin = function () {
       items: [
         { k: 'wallet',       icon: '👛', label: 'المحافظ الإلكترونية', desc: 'إدارة أرصدة المستخدمين بأمان عالٍ' },
         { k: 'wallet_audit', icon: '📋', label: 'سجل تدقيق المحافظ', desc: 'كل العمليات الإدارية على المحافظ موثّقة' },
+        { k: 'deposit_docs', icon: '📄', label: 'مستندات الإيداع',    desc: 'مراجعة وتأكيد كافة مستندات وإيصالات التحويل البنكي' },
+        { k: 'platform_agreements', icon: '📝', label: 'اتفاقيات الشركاء', desc: 'عقود واتفاقيات العمل الموقعة مع المزودين والمندوبين' },
+        { k: 'audit_logs',   icon: '📋', label: 'سجل العمليات الإدارية', desc: 'سجل تدقيق للعمليات الحساسة التي يقوم بها الإداريون' },
         { k: 'banks',        icon: '🏦', label: 'الحسابات البنكية',    desc: 'إدارة حسابات التحويل البنكي' },
       ]
     },
     {
       id: 'hub_content', icon: '🎨', title: 'التسويق والمحتوى',
       items: [
-        { k: 'ads',         icon: '📢', label: 'الإعلانات',      desc: 'بانرات وإعلانات الصفحة الرئيسية' },
-        { k: 'cms_banners', icon: '💬', label: 'إدارة الرسائل',  desc: 'رسائل ونصوص النظام' },
+        { k: 'ads',                   icon: '📢', label: 'الإعلانات',              desc: 'بانرات وإعلانات الصفحة الرئيسية' },
+        { k: 'cms_banners',           icon: '💬', label: 'إدارة الرسائل',          desc: 'رسائل ونصوص النظام' },
+        { k: 'broadcast_notifications', icon: '📣', label: 'التنبيهات الجماعية',  desc: 'إرسال إشعارات مع روابط وأزرار لجميع المستخدمين' },
       ]
     },
     {
@@ -230,7 +245,6 @@ window.renderAdmin = function () {
       items: [
         { k: 'signup_settings',  icon: '📝', label: 'حقول التسجيل',     desc: 'تخصيص نموذج التسجيل' },
         { k: 'login_settings',   icon: '🔐', label: 'إعدادات الدخول',   desc: 'خيارات تسجيل الدخول' },
-        { k: 'regions',          icon: '🌍', label: 'المناطق والمدن',    desc: 'إدارة المناطق الجغرافية' },
         { k: 'delivery_pricing',   icon: '🚚', label: 'أسعار التوصيل',    desc: 'تسعير التوصيل بين المناطق' },
         { k: 'delivery_addresses', icon: '🗺️', label: 'قاعدة العناوين',   desc: 'إدارة المناطق والعناوين الفرعية' },
         { k: 'cms_texts',        icon: '✏️', label: 'النصوص والأيقونات', desc: 'تخصيص نصوص المنصة' },
@@ -351,7 +365,12 @@ window.renderAdmin = function () {
           ${activeTab === 'sys_digital'         ? (typeof ph45_renderAdminDigitalStores === 'function' ? ph45_renderAdminDigitalStores() : 'جاري التحميل...') : ''}
           ${activeTab === 'sys_offers'          ? (typeof renderAdminOffers === 'function' ? renderAdminOffers() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل نظام العروض...</div>') : ''}
           ${activeTab.startsWith('rental_stores_') ? _renderRentalStoresTab(activeTab.replace('rental_stores_', '')) : ''}
-          ${activeTab === 'orders'              ? renderAdminOrders() : ''}
+           ${activeTab === 'orders'              ? renderAdminOrders() : ''}
+          ${activeTab === 'archived_orders'     ? (typeof renderAdminArchivedOrders === 'function' ? renderAdminArchivedOrders() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل الأرشيف...</div>') : ''}
+          ${activeTab === 'deposit_docs'        ? (typeof renderAdminDepositDocs === 'function' ? renderAdminDepositDocs() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل الإيداعات...</div>') : ''}
+          ${activeTab === 'platform_agreements' ? (typeof renderAdminPlatformAgreements === 'function' ? renderAdminPlatformAgreements() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل الاتفاقيات...</div>') : ''}
+          ${activeTab === 'audit_logs'          ? (typeof renderAdminAuditLogs === 'function' ? renderAdminAuditLogs() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل سجل العمليات...</div>') : ''}
+          ${activeTab === 'broadcast_notifications' ? (typeof renderAdminBroadcastNotif === 'function' ? renderAdminBroadcastNotif() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل التنبيهات الجماعية...</div>') : ''}
           ${activeTab === 'ads'                 ? (typeof window.renderAdminAds === 'function' ? window.renderAdminAds() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل نظام الإعلانات...</div>') : ''}
           ${activeTab === 'wallet'              ? (typeof renderSecureWalletPanel === 'function' ? renderSecureWalletPanel() : renderAdminWallet()) : ''}
           ${activeTab === 'wallet_audit'        ? (typeof renderAdminWalletAudit === 'function' ? renderAdminWalletAudit() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري التحميل...</div>') : ''}
@@ -362,16 +381,16 @@ window.renderAdmin = function () {
           ${activeTab === 'advance_stats'       ? (typeof renderAdvancedAnalytics === 'function' ? renderAdvancedAnalytics() : renderAdminReports()) : ''}
           ${activeTab === 'advanced'            ? (typeof renderAdminAdvancedStats === 'function' ? renderAdminAdvancedStats() : renderAdminReports()) : ''}
           ${activeTab === 'driver_performance' ? (typeof renderAdminDriverPerformance === 'function' ? renderAdminDriverPerformance() : renderAdminReports()) : ''}
-          ${activeTab === 'provider_svcs'       ? (typeof renderAdminProviderSvcs === 'function' ? renderAdminProviderSvcs() : renderAdminDash()) : ''}
+          ${activeTab === 'provider_svcs'       ? (typeof renderAdminPendingSvcs === 'function' ? renderAdminPendingSvcs() : renderAdminDash()) : ''}
           ${activeTab === 'banks'               ? (typeof renderAdminBanks === 'function' ? renderAdminBanks() : renderAdminWallet()) : ''}
           ${activeTab === 'cms_banners'         ? (typeof renderAdminCmsBanners === 'function' ? renderAdminCmsBanners() : renderAdminDash()) : ''}
-          ${activeTab === 'login_settings'      ? (typeof renderLoginSettings === 'function' ? renderLoginSettings() : renderAdminDash()) : ''}
+          ${activeTab === 'login_settings'      ? (typeof renderAdminLoginSettings === 'function' ? renderAdminLoginSettings() : renderAdminDash()) : ''}
           ${activeTab === 'regions'             ? (typeof renderAdminRegions === 'function' ? renderAdminRegions() : renderAdminDash()) : ''}
           ${activeTab === 'cms_texts'           ? (typeof renderAdminCmsTexts === 'function' ? renderAdminCmsTexts() : renderAdminDash()) : ''}
           ${activeTab === 'cms_pages'           ? (typeof renderAdminCmsPages === 'function' ? renderAdminCmsPages() : renderAdminDash()) : ''}
           ${activeTab === 'ph17settings'        ? (typeof renderPh17Settings === 'function' ? renderPh17Settings() : renderAdminDash()) : ''}
-          ${activeTab === 'direct_routing'      ? (typeof renderDirectRouting === 'function' ? renderDirectRouting() : renderAdminDash()) : ''}
-          ${activeTab === 'signup_settings'     ? (typeof renderSignupSettings === 'function' ? renderSignupSettings() : 'جاري التحميل...') : ''}
+          ${activeTab === 'direct_routing'      ? (typeof ph18_renderLiveRouting === 'function' ? ph18_renderLiveRouting() : renderAdminDash()) : ''}
+          ${activeTab === 'signup_settings'     ? (typeof renderAdminSignupSettings === 'function' ? renderAdminSignupSettings() : 'جاري التحميل...') : ''}
           ${activeTab === 'delivery_pricing'    ? (typeof renderAdminDeliveryPricing === 'function' ? renderAdminDeliveryPricing() : 'جاري التحميل...') : ''}
           ${activeTab === 'delivery_addresses'  ? (typeof renderAdminDeliveryAddresses === 'function' ? renderAdminDeliveryAddresses() : 'جاري التحميل...') : ''}
           ${activeTab === 'provider_groups'      ? (typeof renderAdminProviderGroups === 'function' ? renderAdminProviderGroups() : 'جاري التحميل...') : ''}
@@ -383,6 +402,7 @@ window.renderAdmin = function () {
           ${activeTab === 'stalled_orders'     ? (typeof renderAdminStalledOrders === 'function' ? renderAdminStalledOrders() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل الطلبات المتوقفة...</div>') : ''}
           ${activeTab === 'platform_activity' ? (typeof renderAdminPlatformActivity === 'function' ? renderAdminPlatformActivity() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل سجل النشاط...</div>') : ''}
           ${activeTab === 'error_dashboard'   ? (typeof renderAdminErrorDashboard === 'function' ? renderAdminErrorDashboard() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل لوحة الأخطاء...</div>') : ''}
+          ${activeTab === 'customer_feedback' ? (typeof renderAdminCustomerFeedback === 'function' ? renderAdminCustomerFeedback() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل لوحة الاقتراحات والشكاوى...</div>') : ''}
         </main>
       </div>
     </div>
@@ -403,6 +423,7 @@ function toggleAdminSidebar() {
   if (!sidebar) return;
   sidebar.classList.contains('open') ? closeAdminSidebar() : openAdminSidebar();
 }
+window.toggleAdminSidebar = toggleAdminSidebar;
 
 function openAdminSidebar() {
   const sidebar  = document.getElementById('adminSidebar');
@@ -520,6 +541,7 @@ async function setAdminTab(tab) {
   // دائماً pushState لضمان تاريخ تنقّل خطوة بخطوة
   await navigate('admin', { tab }, false);
 }
+window.setAdminTab = setAdminTab;
 
 // ── فتح تلقائي للدرج عند دخول لوحة المدير على الموبايل ──
 (function _watchAdminSidebarMount() {
@@ -532,7 +554,11 @@ async function setAdminTab(tab) {
       if (window._adminNavFromTab) {
         window._adminNavFromTab = false;
       } else {
-        if (State.currentPage === 'admin' && !State._adminSidebarAutoOpened) {
+        // فتح تلقائي فقط لصفحة admin وعند أدوار admin/staff فقط
+        const isAdminPage = State.currentPage === 'admin';
+        const role = State.currentUser?.role;
+        const isAdminRole = role === 'admin' || role === 'staff';
+        if (isAdminPage && isAdminRole && !State._adminSidebarAutoOpened) {
           State._adminSidebarAutoOpened = true;
           setTimeout(function() {
             if (!sb.classList.contains('open')) openAdminSidebar();
@@ -543,6 +569,7 @@ async function setAdminTab(tab) {
   });
   obs.observe(document.body, { childList: true, subtree: true });
 })();
+
 
 // ─── Direct DOM Injection for Rental Stores ─────
 // This bypasses setAdminTab overrides from stats.js / roles-permissions.js
@@ -978,11 +1005,11 @@ function renderAdminUsers() {
               </div>
             </div>
             <div class="usys-svc-footer" style="border-top:1px solid var(--border);padding-top:12px;margin-top:auto">
-              ${canViewWallets ? `<div style="text-align:center;font-weight:700;margin-bottom:8px;color:#10b981;font-size:14px">${AppData.wallets ? (AppData.wallets[u.id || u.uid]?.balance || 0) : 0} ر</div>` : ''}
+              ${(canViewWallets && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase())) ? `<div style="text-align:center;font-weight:700;margin-bottom:8px;color:#10b981;font-size:14px">${AppData.wallets ? (AppData.wallets[u.id || u.uid]?.balance || 0) : 0} ر</div>` : ''}
               <div style="display:flex;gap:6px">
                 <button class="btn btn-sm btn-secondary" style="flex:1" onclick="showUserDetails('${u.id}')">👁️ عرض</button>
                 ${(isAdmin && (u.role === 'staff' || u.role === 'admin')) ? `<button class="btn btn-sm btn-secondary" onclick="showPermsModal('${u.id}')" title="صلاحيات">🔑</button>` : ''}
-                ${canAdjust ? `<button class="btn btn-sm btn-secondary" onclick="showAdjustWalletModal('${u.id}')" title="تعديل رصيد">💰</button>` : ''}
+                ${(canAdjust && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase())) ? `<button class="btn btn-sm btn-secondary" onclick="wsecOpenAdjust('${u.id}')" title="تعديل رصيد">💰</button>` : ''}
                 ${isAdmin ? `<button class="btn btn-sm" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)" onclick="deleteUser('${u.id}')">🗑️</button>` : ''}
               </div>
             </div>
@@ -1890,8 +1917,18 @@ function showOrderDetails(orderId) {
   `);
 }
 async function updateOrderStatus(orderId, status) {
-  await fsUpdate('orders', orderId, { status });
-  toast('تم تحديث حالة الطلب','success'); await render();
+  if (['completed', 'rejected', 'cancelled'].includes(status)) {
+    showLoader('جاري نقل الطلب للأرشيف...');
+    const ok = await ph53_archiveOrder(orderId, status);
+    hideLoader();
+    if (ok) {
+      toast('✅ تم إنهاء الطلب ونقله إلى الأرشيف بنجاح', 'success');
+    }
+  } else {
+    await fsUpdate('orders', orderId, { status });
+    toast('تم تحديث حالة الطلب','success');
+  }
+  await render();
 }
 async function deleteOrder(orderId) {
   if (!confirm('حذف هذا الطلب؟')) return;
@@ -2000,6 +2037,11 @@ function renderAdminReports() {
 function renderVendor() {
   if (State.currentUser?.role !== 'vendor' && State.currentUser?.role !== 'provider') { navigate('home'); return ''; }
   const u = State.currentUser;
+  // ── فحص اتفاقية العمل (غير إجباري للرندر، يُظهر مودال إذا لم يوقع) ──
+  if (typeof ph53_checkPartnerAgreement === 'function' && !State._agreementChecked_vendor) {
+    State._agreementChecked_vendor = true;
+    setTimeout(() => ph53_checkPartnerAgreement(), 400);
+  }
   const vendorTab = State.vendorTab || 'orders';
   const initial = (u.name || u.email || 'V')[0].toUpperCase();
   const displayName = u.name || u.email || 'المزود';
@@ -2047,10 +2089,12 @@ function renderVendor() {
     </div>
   </div>`;
 }
+window.renderVendor = renderVendor;
 async function setVendorTab(tab) {
   State.vendorTab = tab;
   await navigate('vendor', {tab});
 }
+window.setVendorTab = setVendorTab;
 
 function renderVendorOrders() {
   const u = State.currentUser;
@@ -2110,8 +2154,10 @@ async function vendorAcceptOrder(orderId) {
   toast('تم قبول الطلب ✅','success'); await render();
 }
 async function vendorRejectOrder(orderId) {
-  await fsUpdate('orders', orderId, { status: 'cancelled' });
-  toast('تم رفض الطلب','success'); await render();
+  showLoader('جاري إلغاء الطلب والأرشفة...');
+  await ph53_archiveOrder(orderId, 'cancelled');
+  hideLoader();
+  toast('تم رفض وإلغاء الطلب وأرشفته','success'); await render();
 }
 
 function renderVendorEarnings() {
@@ -2191,6 +2237,11 @@ function renderVendorProfile() {
 function renderDriver() {
   if (State.currentUser?.role !== 'driver') { navigate('home'); return ''; }
   const u = State.currentUser;
+  // ── فحص اتفاقية العمل (غير إجباري للرندر، يُظهر مودال إذا لم يوقع) ──
+  if (typeof ph53_checkPartnerAgreement === 'function' && !State._agreementChecked_driver) {
+    State._agreementChecked_driver = true;
+    setTimeout(() => ph53_checkPartnerAgreement(), 400);
+  }
   const driverTab = State.driverTab || 'orders';
   const initial = (u.name || u.email || 'D')[0].toUpperCase();
   const displayName = u.name || u.email || 'المندوب';
@@ -2245,10 +2296,12 @@ function renderDriver() {
     </div>
   </div>`;
 }
+window.renderDriver = renderDriver;
 async function setDriverTab(tab) {
   State.driverTab = tab;
   await navigate('driver', {tab});
 }
+window.setDriverTab = setDriverTab;
 
 function renderDriverOrders() {
   const u = State.currentUser;
@@ -2720,11 +2773,17 @@ window.dlvMap_copyAddr = function(addr) {
   navigator.clipboard?.writeText(addr).then(() => toast('تم نسخ العنوان ✅','success')).catch(() => toast('تعذّر النسخ','error'));
 };
 async function updateDeliveryStatus(orderId, status) {
-  await fsUpdate('orders', orderId, { status });
   if (status === 'delivered') {
-    await fsUpdate('orders', orderId, { status: 'completed' });
-    toast('تم تسليم الطلب بنجاح ✅','success');
+    showLoader('جاري إنهاء الطلب ونقله للأرشيف...');
+    const order = (AppData.orders || []).find(o => o.id === orderId || o.orderId === orderId);
+    if (order) {
+      order.status = 'completed';
+      await ph53_archiveOrder(order.id, 'completed');
+    }
+    hideLoader();
+    toast('تم تسليم وإنهاء الطلب ونقله للأرشيف بنجاح ✅','success');
   } else {
+    await fsUpdate('orders', orderId, { status });
     toast('تم تحديث الحالة','success');
   }
   await render();
@@ -2782,16 +2841,14 @@ window.renderStaff = function() {
 
   let content = '';
   if (staffTab==='orders') content = typeof renderStaffOrders === 'function' ? renderStaffOrders() : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري التحميل...</div>';
-  else if (staffTab==='support') content = `
-    <div class="dashboard-header">
-      <h2>💬 مركز الدعم الفني</h2>
-      <p>إدارة استفسارات المستخدمين والمحادثات المباشرة</p>
-    </div>
-    <div class="empty-state">
-      <div class="empty-icon">💬</div>
-      <div class="empty-title">لا توجد محادثات نشطة حالياً</div>
-      <p>سيتم تنبيهك فور وصول استفسار جديد من العملاء</p>
-    </div>`;
+  else if (staffTab==='support') {
+    content = typeof renderSupportDashboard === 'function'
+      ? renderSupportDashboard()
+      : '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل نظام الدعم...</div>';
+    if (typeof initSupportDashboard === 'function') {
+      setTimeout(() => initSupportDashboard(), 0);
+    }
+  }
   else if (staffTab==='payments') content = renderStaffPayments();
   else if (staffTab==='cats') content = renderStaffCats();
   else if (staffTab==='services') content = renderStaffServices();
@@ -3066,7 +3123,7 @@ window._svcOnCatChange = function(catId) {
 };
 
 window._svcModalBody = function(s = {}, section = null) {
-  const regions = AppData.regions || [];
+  const regions = AppData.deliveryZones || AppData.regions || [];
   const oh = s.openingHours || { open:'09:00', close:'22:00', days:['sat','sun','mon','tue','wed','thu'] };
   const categories = AppData.cats || [];
   const cat = categories.find(c => c.id === s.catId);
@@ -3214,7 +3271,7 @@ window._svcModalBody = function(s = {}, section = null) {
           <label class="form-label">المنطقة</label>
           <select class="form-control" id="svc-region">
             <option value="">-- اختر المنطقة --</option>
-            ${(AppData.regions || []).filter(r => r.govId === s.govId && r.active !== false).map(r => `<option value="${r.id}" ${r.id === s.regionId ? 'selected' : ''}>${r.name}</option>`).join('')}
+            ${(AppData.deliveryZones || AppData.regions || []).filter(r => r.govId === s.govId && r.active !== false).map(r => `<option value="${r.id}" ${r.id === s.regionId ? 'selected' : ''}>${r.name}</option>`).join('')}
           </select>
         </div>
       </div>

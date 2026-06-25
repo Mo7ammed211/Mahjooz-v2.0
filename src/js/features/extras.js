@@ -664,9 +664,14 @@ function renderSignupPage() {
 // Pre-fetch regions into AppData so the form has them ready
 window._prefetchRegions = async function() {
   try {
-    const allRegions = await fsGetAll('regions');
-    AppData.regions = allRegions;
-  } catch(e) { console.warn('regions prefetch failed (will retry on signup):', e); }
+    const [allZones, allGovs] = await Promise.all([
+      fsGetAll('delivery_zones'),
+      fsGetAll('delivery_governorates'),
+    ]);
+    AppData.deliveryZones = allZones;
+    AppData.regions = allZones;
+    AppData.deliveryGovernorates = allGovs;
+  } catch(e) { console.warn('delivery_zones prefetch failed (will retry on signup):', e); }
 };
 
 window.openTermsModal = function() {
@@ -693,33 +698,35 @@ window.renderSignupFormPage = async function(role) {
   const labels = { customer: 'عميل 👤', driver: 'مندوب توصيل 🚗', vendor: 'مزود خدمة 🏪' };
   
   // 1️⃣ Try AppData (set when user is already authenticated / pre-fetched at startup)
-  let regions = (AppData.regions || []).filter(r => r.active !== false);
+  let regions = (AppData.deliveryZones || []).filter(r => r.active !== false);
   
   // 2️⃣ Try fetching fresh from Firestore (works if rules allow public reads)
   if (regions.length === 0) {
     try {
-      const allRegions = await fsGetAll('regions');
-      AppData.regions = allRegions;
-      regions = allRegions.filter(r => r.active !== false);
-      if (allRegions.length > 0) {
-        try { localStorage.setItem('mahjooz_regions_cache', JSON.stringify(allRegions)); } catch(e) {}
+      const allZones = await fsGetAll('delivery_zones');
+      AppData.deliveryZones = allZones;
+      AppData.regions = allZones;
+      regions = allZones.filter(r => r.active !== false);
+      if (allZones.length > 0) {
+        try { localStorage.setItem('mahjooz_zones_cache', JSON.stringify(allZones)); } catch(e) {}
       }
     } catch(e) { 
-      console.warn('Firestore regions fetch failed (may need auth):', e.message);
+      console.warn('Firestore delivery_zones fetch failed (may need auth):', e.message);
     }
   }
 
   // 3️⃣ Fallback: read from localStorage cache (set when admin was logged in)
   if (regions.length === 0) {
     try {
-      const cached = localStorage.getItem('mahjooz_regions_cache');
+      const cached = localStorage.getItem('mahjooz_zones_cache');
       if (cached) {
         const parsed = JSON.parse(cached);
+        AppData.deliveryZones = parsed;
         AppData.regions = parsed;
         regions = parsed.filter(r => r.active !== false);
-        console.log('✅ Loaded regions from localStorage cache:', regions.length);
+        console.log('✅ Loaded delivery zones from localStorage cache:', regions.length);
       }
-    } catch(e) { console.warn('localStorage regions cache read failed:', e); }
+    } catch(e) { console.warn('localStorage zones cache read failed:', e); }
   }
   
   const regionOpts = regions.length
@@ -773,7 +780,7 @@ function showSignupModal() { navigate('signup'); }
 window.signupSelectRole = function(role) {
   SignupState.role = role;
   const labels = { customer: 'عميل 👤', driver: 'مندوب 🚗', vendor: 'مزود خدمة 🏪' };
-  const regions = (AppData.regions || []).filter(r => r.active !== false);
+  const regions = (AppData.deliveryZones || AppData.regions || []).filter(r => r.active !== false);
   const regionOpts = regions.length
     ? regions.map(r => `<option value="${escAttr(r.name)}">${escHtml(r.name)}</option>`).join('')
     : `<option disabled>لا توجد مناطق متاحة</option>`;
@@ -1498,21 +1505,22 @@ async function loadAllData() {
       ]);
     } catch(e) { return []; }
   };
-  const [cats,cities,services,orders,users,ads,ratings,rr,wr,tr,regions,banks,walletsArr,
+  const [cats,cities,services,orders,users,ads,ratings,rr,wr,tr,banks,walletsArr,
          stores,storeCats,storeProducts,banners,pages,svcSections,deliveryZones,deliveryRoutes,digitalCodes,
-         digitalStoreCats,digitalStores,digitalProducts] = await Promise.all([
+         digitalStoreCats,digitalStores,digitalProducts,depositDocs,agreements,archivedOrders,broadcastNotifs,customerFeedback] = await Promise.all([
     safe('categories'), safe('cities'), safe('services'),
     safe('orders'), safe('users'), safe('ads'),
     safe('ratings'), safe('recharge_requests'),
     safe('withdrawal_requests'), safe('transactions'),
-    safe('regions'), safe('bank_accounts'),
+    safe('bank_accounts'),
     safe('wallets'),
     // ✅ المتاجر — يجب تحميلها هنا لأن هذه النسخة تستبدل loadAllData في core.js
     safe('stores'), safe('store_cats'), safe('store_products'),
     safe('banners'), safe('pages'),
     safe('service_sections'), safe('delivery_zones'), safe('delivery_routes'),
     safe('digital_codes'),
-    safe('digital_store_cats'), safe('digital_stores'), safe('digital_products')
+    safe('digital_store_cats'), safe('digital_stores'), safe('digital_products'),
+    safe('depositDocs'), safe('platform_agreements'), safe('archivedOrders'), safe('broadcastNotifications'), safe('customer_feedback')
   ]);
 
   // Convert wallets array → { uid: walletDoc } map (each doc id IS the uid).
@@ -1521,23 +1529,30 @@ async function loadAllData() {
   Object.assign(AppData, {
     cats, cities, services, orders, users, ads, ratings,
     rechargeReqs: rr, withdrawReqs: wr, transactions: tr,
-    regions, bankAccounts: banks,
+    regions: deliveryZones, bankAccounts: banks,
     wallets,
     // ✅ بيانات المتاجر
     stores, storeCats, storeProducts,
     banners, pages,
     svcSections, deliveryZones, deliveryRoutes,
     digitalCodes,
-    digitalStoreCats, digitalStores, digitalProducts
+    digitalStoreCats, digitalStores, digitalProducts,
+    depositDocs,
+    agreements,
+    archivedOrders,
+    broadcastNotifications: broadcastNotifs,
+    customerFeedback
   });
-  // ✅ Cache regions in localStorage so the signup page can read them without auth
-  if (regions && regions.length > 0) {
-    try { localStorage.setItem('mahjooz_regions_cache', JSON.stringify(regions)); } catch(e) {}
+  State._archivedOrdersLoaded = true; // Mark as loaded so dynamic view uses AppData directly
+  // ✅ Cache deliveryZones in localStorage so the signup page can read them without auth
+  if (deliveryZones && deliveryZones.length > 0) {
+    try { localStorage.setItem('mahjooz_zones_cache', JSON.stringify(deliveryZones)); } catch(e) {}
   }
 }
 // Also seed AppData with the new arrays for any code that reads them before first load
 if (typeof AppData !== 'undefined') {
   if (!AppData.regions) AppData.regions = [];
+  if (!AppData.deliveryZones) AppData.deliveryZones = [];
   if (!AppData.bankAccounts) AppData.bankAccounts = [];
   if (!AppData.wallets) AppData.wallets = {};
   if (!AppData.orders) AppData.orders = [];
@@ -1568,10 +1583,28 @@ window._generateSignupFieldsHTML = function(role, regionOpts) {
       }).join('');
       html += `<select class="form-control" id="su-${f.id}" ${f.required ? 'required' : ''}>${opts}</select>`;
     } else if (f.type === 'region') {
-      html += `<select class="form-control" id="su-${f.id}" ${f.required ? 'required' : ''}>
-        <option value="">— اختر المنطقة —</option>
-        ${regionOpts}
-      </select>`;
+      // Cascading: first pick governorate, then zone
+      const govs = (AppData.deliveryGovernorates || []).filter(g => g.active !== false);
+      const govOpts = govs.map(g => `<option value="${escAttr(g.id)}">${escHtml(g.name)}</option>`).join('');
+      html += `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <label class="form-label" style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">🏛️ المحافظة</label>
+            <select class="form-control" id="su-gov-select"
+              onchange="su_onGovChange(this.value,'su-${f.id}')"
+              ${f.required ? 'required' : ''}>
+              <option value="">— اختر المحافظة أولاً —</option>
+              ${govOpts}
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">📍 المنطقة / الحي</label>
+            <select class="form-control" id="su-${f.id}" ${f.required ? 'required' : ''} disabled>
+              <option value="">— اختر المحافظة أولاً —</option>
+            </select>
+          </div>
+        </div>`;
+
     } else if (f.type === 'tel' || f.id === 'phone') {
       html += `
         <div style="display:flex; gap:8px;">
@@ -1631,6 +1664,39 @@ window._generateSignupFieldsHTML = function(role, regionOpts) {
     html += `</div>`;
     return html;
   }).join('');
+};
+
+// ─── Cascading Governorate → Zone selector for signup ────────────────────────
+window.su_onGovChange = function(govId, zoneSelectId) {
+  const zoneEl = document.getElementById(zoneSelectId);
+  if (!zoneEl) return;
+
+  // Store the selected govId in SignupState for later use
+  SignupState.selectedGovId = govId;
+
+  if (!govId) {
+    zoneEl.innerHTML = '<option value="">— اختر المحافظة أولاً —</option>';
+    zoneEl.disabled = true;
+    return;
+  }
+
+  const zones = (AppData.deliveryZones || AppData.regions || [])
+    .filter(z => z.govId === govId && z.active !== false);
+
+  if (zones.length === 0) {
+    zoneEl.innerHTML = '<option value="">— لا توجد مناطق في هذه المحافظة بعد —</option>';
+    zoneEl.disabled = true;
+    return;
+  }
+
+  zoneEl.disabled = false;
+  zoneEl.innerHTML = '<option value="">— اختر المنطقة / الحي —</option>' +
+    zones.map(z => `<option value="${escAttr(z.name)}">${escHtml(z.name)}</option>`).join('');
+
+  // Auto-select if only one zone
+  if (zones.length === 1) {
+    zoneEl.value = zones[0].name;
+  }
 };
 
 window.su_handleHousePics = function(input) {

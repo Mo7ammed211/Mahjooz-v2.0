@@ -658,7 +658,7 @@
   }
   // Re-plot whenever the routing tab is open.
   setInterval(() => {
-    if (State.adminTab === 'ph18routing' && document.getElementById('ph18-route-map')) {
+    if ((State.adminTab === 'ph18routing' || State.adminTab === 'direct_routing') && document.getElementById('ph18-route-map')) {
       plotRouting();
     }
   }, 1500);

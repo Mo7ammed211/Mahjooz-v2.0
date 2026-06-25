@@ -304,43 +304,58 @@ async function loadUserNotifications(userId) {
     
     const snapshot = await db.collection('user_notifications')
       .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
       .limit(50)
       .get();
-    
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+
+    return snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() || 0;
+        const tb = b.createdAt?.toMillis?.() || 0;
+        return tb - ta;
+      });
   } catch (error) {
-    console.error('Error loading notifications:', error);
+    console.warn('[Notifications] Load error:', error?.code || error?.message || error);
     return [];
   }
 }
 
 // ─── الاستماع للإشعارات الجديدة في الوقت الفعلي ──────────────────
+let __notifListenerUid = null;
+let __notifListenerUnsub = null;
+
 function listenToNotifications(userId) {
-  if (!userId) return;
-  
-  db.collection('user_notifications')
+  if (!userId || typeof db === 'undefined') return;
+  // تجنّب مستمعين مكررين (يُستدعى من _signIn و onAuthStateChanged)
+  if (__notifListenerUid === userId && __notifListenerUnsub) return;
+
+  if (__notifListenerUnsub) {
+    try { __notifListenerUnsub(); } catch (e) { /* ignore */ }
+    __notifListenerUnsub = null;
+  }
+
+  __notifListenerUid = userId;
+
+  // استعلام بسيط بدون فهرس مركّب — التصفية محلياً
+  __notifListenerUnsub = db.collection('user_notifications')
     .where('userId', '==', userId)
-    .where('read', '==', false)
-    .orderBy('createdAt', 'desc')
     .onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const notif = change.doc.data();
-          // عرض الإشعار إذا كان التطبيق مفتوحاً
-          if (document.hasFocus()) {
-            notificationManager.showNotification(notif.title, {
-              body: notif.body,
-              data: notif.data,
-            });
-          }
+        if (change.type !== 'added') return;
+        const notif = change.doc.data();
+        if (notif.read) return;
+        if (document.hasFocus() && typeof notificationManager !== 'undefined') {
+          notificationManager.showNotification(notif.title || 'إشعار جديد', {
+            body: notif.body || '',
+            data: notif.data || {},
+          });
         }
       });
     }, error => {
-      console.error('Error listening to notifications:', error);
+      // console.warn فقط — error-dashboard يحوّل console.error إلى toast للموظفين
+      console.warn('[Notifications] Listener unavailable:', error?.code || error?.message || error);
+      __notifListenerUid = null;
+      __notifListenerUnsub = null;
     });
 }
 

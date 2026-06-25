@@ -297,7 +297,7 @@ function toggleTheme(event) {
 
 // ─── Demo Accounts ────────────────────────────────
 const DEMO = [
-  { email:'admin@mahjooz.app',    pass:'admin123',    name:'نايف (المدير العام)',           role:'admin'    },
+  { email:'admin@mahjooz.app',    pass:'123456',    name:'نايف (المدير العام)',           role:'admin'    },
   { email:'staff@mahjooz.app',    pass:'staff123',    name:'سعد (الموظف)',      role:'staff'    },
   { email:'vendor-service@mahjooz.app', pass:'vendor123', name:'خالد (مزود الخدمات)', role:'vendor', vendorType:'services' },
   { email:'vendor-store@mahjooz.app',   pass:'vendor123', name:'أحمد (مزود المتاجر)', role:'vendor', vendorType:'store' },
@@ -414,6 +414,7 @@ async function loadAllData() {
     Object.assign(AppData, { cats, cities, services, orders, users, ads, ratings,
       rechargeReqs: rr, withdrawReqs: wr, transactions: tr, dictionary, banners, pages,
       stores, storeCats, storeProducts, svcSections, deliveryGovernorates, deliveryZones, deliveryRoutes,
+      regions: deliveryZones,
       rentalStores, rentalSubCats, rentalProducts, catalogCats, catalogItems,
       providerGroups: providerGroups.sort((a,b)=>(a.order||99)-(b.order||99)),
       pdbCats:    pdbCats.sort((a,b)=>(a.order||99)-(b.order||99)),
@@ -438,6 +439,7 @@ function _navItemsForRole(u) {
       const balStr = State.walletBalance !== undefined ? `${(State.walletBalance||0).toLocaleString('ar-YE')} <span style="font-size:12px; font-weight:600; color: rgba(255,255,255,0.9);">ريال</span>` : '...';
       const balPill = `<span class="nav-wallet-balance-disp" style="display:inline-flex; align-items:baseline; gap:4px; margin-inline-start:8px; font-weight:800; color:#ffffff; background:linear-gradient(135deg, #10b981, #059669); padding:4px 12px; border-radius:24px; font-size:15px; box-shadow:0 4px 12px rgba(16,185,129,0.3); border:1px solid rgba(255,255,255,0.2); transition:var(--transition); letter-spacing:0.5px;">${balStr}</span>`;
       items.push({ page: 'wallet',   icon: '💰', label: `محفظتي ${balPill}` });
+      items.push({ page: 'support-chat', icon: '💬', label: 'الدعم' });
     }
     return items;
   }
@@ -515,8 +517,8 @@ function renderNavbar() {
       { g:'إعدادات النظام', items:[
         { k:'signup_settings', l:'حقول التسجيل' },
         { k:'login_settings', l:'إعدادات الدخول' },
-        { k:'regions', l:'المناطق والمدن' },
         { k:'delivery_pricing', l:'أسعار التوصيل 🚚' },
+        { k:'delivery_addresses', l:'قاعدة العناوين 🗺️' },
         { k:'cms_texts', l:'النصوص والأيقونات' },
         { k:'cms_pages', l:'الصفحات الثابتة' },
         { k:'ph17settings', l:'الإعدادات العامة' },
@@ -564,6 +566,9 @@ function renderNavbar() {
     <button class="drawer-link${isActive(it.page)?' active':''}" onclick="navigate('${it.page}');closeDrawer()">
       <span>${it.label}</span>
     </button>`).join('') + staticPagesLinks + notifCenterLink + `
+    <button class="drawer-link${isActive('suggestions-complaints')?' active':''}" onclick="navigate('suggestions-complaints');closeDrawer()">
+      <span>📝 الاقتراحات والشكاوى</span>
+    </button>
     <button class="drawer-link${isActive('help-center')?' active':''}" onclick="navigate('help-center');closeDrawer()">
       <span>❓ مركز المساعدة</span>
     </button>`;
@@ -720,20 +725,54 @@ function renderNavbar() {
 
 // ── نقل عناصر الدرج إلى <body> لتجاوز حدود الـ stacking context ──
 function _teleportDrawers() {
-  // الدرج الجانبي للعميل/الزائر (داخل navbar-wrap)
-  ['nav-drawer', 'nav-drawer-backdrop'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) {
-      document.body.appendChild(el);
+  const u = typeof State !== 'undefined' && State.currentUser;
+  const isCustomerOrGuest = !u || u.role === 'customer' || u.role === 'guest';
+  const isAdminRole = u && (u.role === 'admin' || u.role === 'staff' || u.role === 'vendor' || u.role === 'driver' || u.role === 'cs');
+
+  // ═══ خطوة 1: حذف كل الدرجين القديمة من body أولاً ═══
+  // هذا يضمن عدم بقاء درج الدور القديم (مثلاً: درج العميل يبقى عند الانتقال للمدير)
+  ['nav-drawer', 'nav-drawer-backdrop', 'adminSidebar', 'adminSidebarOverlay'].forEach(id => {
+    // نحذف الفائضة (إذا كانت هناك نسخ متعددة)
+    const allEls = document.querySelectorAll(`#${id}`);
+    if (allEls.length > 1) {
+      for (let i = 1; i < allEls.length; i++) allEls[i].remove();
     }
   });
-  // الدرج الجانبي للمدير/المزود/السائق/الموظف (داخل #app)
-  ['adminSidebar', 'adminSidebarOverlay'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) {
-      document.body.appendChild(el);
-    }
-  });
+
+  // ═══ خطوة 2: إزالة درج العميل من body إذا كان المستخدم في دور إداري ═══
+  if (isAdminRole) {
+    ['nav-drawer', 'nav-drawer-backdrop'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement === document.body) el.remove();
+    });
+  }
+
+  // ═══ خطوة 3: إزالة درج المدير من body إذا كان المستخدم عميلاً/زائراً ═══
+  if (isCustomerOrGuest) {
+    ['adminSidebar', 'adminSidebarOverlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement === document.body) el.remove();
+    });
+  }
+
+  // ═══ خطوة 4: نقل الدرج الصحيح للـ body ═══
+  if (isCustomerOrGuest) {
+    // درج العميل/الزائر
+    ['nav-drawer', 'nav-drawer-backdrop'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+    });
+  } else if (isAdminRole) {
+    // درج المدير/المزود/المندوب/الموظف
+    ['adminSidebar', 'adminSidebarOverlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+    });
+  }
 }
 window._teleportDrawers = _teleportDrawers;
 
@@ -802,14 +841,60 @@ function toggleProfileMenu(e) {
   const m = document.getElementById('nav-profile-menu');
   if (!m) return;
   const open = !m.classList.contains('open');
+  
+  if (open) {
+    if (window.innerWidth <= 640) {
+      if (m.parentElement !== document.body) {
+        document.body.appendChild(m);
+      }
+      // Create backdrop for mobile centered layout
+      let bg = document.getElementById('nav-profile-backdrop');
+      if (!bg) {
+        bg = document.createElement('div');
+        bg.id = 'nav-profile-backdrop';
+        bg.className = 'nav-profile-backdrop';
+        bg.onclick = closeProfileMenu;
+        document.body.appendChild(bg);
+      }
+      setTimeout(() => bg.classList.add('open'), 10);
+    } else {
+      const parent = document.querySelector('.nav-profile');
+      if (parent && m.parentElement !== parent) {
+        parent.appendChild(m);
+      }
+    }
+  } else {
+    const bg = document.getElementById('nav-profile-backdrop');
+    if (bg) {
+      bg.classList.remove('open');
+      setTimeout(() => bg.remove(), 250);
+    }
+  }
+  
   m.classList.toggle('open', open);
-  m.parentElement?.classList.toggle('open', open);
+  const navProfile = document.querySelector('.nav-profile');
+  if (navProfile) navProfile.classList.toggle('open', open);
+  
   if (open) setTimeout(() => document.addEventListener('click', closeProfileMenu, { once: true }), 0);
 }
 function closeProfileMenu() {
   const m = document.getElementById('nav-profile-menu');
-  m?.classList.remove('open');
-  m?.parentElement?.classList.remove('open');
+  if (!m) return;
+  m.classList.remove('open');
+  
+  const bg = document.getElementById('nav-profile-backdrop');
+  if (bg) {
+    bg.classList.remove('open');
+    setTimeout(() => bg.remove(), 250);
+  }
+
+  const navProfile = document.querySelector('.nav-profile');
+  if (navProfile) {
+    navProfile.classList.remove('open');
+    if (m.parentElement === document.body) {
+      navProfile.appendChild(m);
+    }
+  }
 }
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeDrawer(); closeProfileMenu(); }
@@ -919,7 +1004,27 @@ function logoutConfirm() {
 async function doLogout() {
   const confirmOverlay = document.getElementById('logout-confirm-overlay');
   if (confirmOverlay) confirmOverlay.remove();
-  
+
+  // ── تنظيف الدرج الجانبي بالقوة قبل الخروج ──
+  // يمنع بقاء الدرج مفتوحاً عند الدخول بحساب مختلف
+  try {
+    const adminSidebar = document.getElementById('adminSidebar');
+    const adminOverlay = document.getElementById('adminSidebarOverlay');
+    if (adminSidebar) { adminSidebar.classList.remove('open'); adminSidebar.classList.remove('dragging'); }
+    if (adminOverlay) adminOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  } catch(e) {}
+
+  // ── إعادة تصفير حالة الدرج في State ──
+  delete State._adminSidebarAutoOpened;
+  delete State.adminTab;
+  delete State.vendorTab;
+  delete State.driverTab;
+  delete State.staffTab;
+  // إعادة ضبط علامات فحص اتفاقية الشركاء لضمان العرض للمستخدم القادم
+  delete State._agreementChecked_vendor;
+  delete State._agreementChecked_driver;
+
   closeModal();
   if (State.currentUser?.role !== 'guest') await auth.signOut();
   State.currentUser = null;
@@ -1084,8 +1189,19 @@ async function render() {
   const fw = document.getElementById('footer-wrap');
   const app = document.getElementById('app');
 
+  // ── helper: reset scroll position to top ──
+  const _resetScroll = () => {
+    try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch(e) {}
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // also reset #app itself in case it's a scroll container
+    if (app) app.scrollTop = 0;
+  };
+
   // ── helper: swap content with transition ──
   const setContent = (html) => {
+    _resetScroll();
+
     app.classList.remove('page-enter', 'page-exit');
     // Only animate if there's existing content
     if (app.innerHTML.trim()) {
@@ -1093,6 +1209,8 @@ async function render() {
       return new Promise(resolve => {
         setTimeout(() => {
           app.innerHTML = html;
+          // Reset scroll again AFTER content injection (crucial for mobile)
+          _resetScroll();
           app.classList.remove('page-exit');
           app.classList.add('page-enter');
           app.addEventListener('animationend', () => app.classList.remove('page-enter'), { once: true });
@@ -1101,6 +1219,7 @@ async function render() {
       });
     } else {
       app.innerHTML = html;
+      _resetScroll();
       app.classList.add('page-enter');
       app.addEventListener('animationend', () => app.classList.remove('page-enter'), { once: true });
       return Promise.resolve();
@@ -1157,11 +1276,29 @@ async function render() {
   
   const pages = {
     home: renderHome, listing: renderListing,
-    myorders: renderMyOrders, wallet: renderMyWallet, mydeposits: renderMyDeposits, rate: renderRatingPage, settings: renderSettingsPage,
+    myorders: renderMyOrders,
+    wallet: () => {
+      const r = State.currentUser?.role;
+      if (r === 'admin' || r === 'staff') {
+        navigate(r === 'admin' ? 'admin' : 'staff');
+        return '';
+      }
+      return renderMyWallet();
+    },
+    mydeposits: () => {
+      const r = State.currentUser?.role;
+      if (r === 'admin' || r === 'staff') {
+        navigate(r === 'admin' ? 'admin' : 'staff');
+        return '';
+      }
+      return renderMyDeposits();
+    },
+    rate: renderRatingPage, settings: renderSettingsPage,
     admin: renderAdmin, staff: renderStaff,
     vendor: renderVendor, driver: renderDriver,
     page: renderStaticPage,
     'help-center': () => typeof renderHelpCenter === 'function' ? renderHelpCenter() : '<div style="padding:60px;text-align:center">جاري تحميل مركز المساعدة...</div>',
+    'suggestions-complaints': () => typeof renderCustomerFeedbackPage === 'function' ? renderCustomerFeedbackPage() : '<div style="padding:60px;text-align:center">جاري تحميل صفحة الاقتراحات والشكاوى...</div>',
     offers: () => typeof ph_offersRenderPage === 'function' ? ph_offersRenderPage() : '<div style="padding:60px;text-align:center">جاري تحميل العروض...</div>',
     store: () => typeof ph43_renderStorePage === 'function' ? ph43_renderStorePage() : '<div style="padding:60px;text-align:center">جاري تحميل المتجر...</div>',
     rentalstore: () => typeof window.ph_rentalRenderStorePage === 'function' ? window.ph_rentalRenderStorePage() : '<div style="padding:60px;text-align:center">جاري تحميل المتجر...</div>',
@@ -1272,7 +1409,7 @@ function renderLoginPage() {
   </div>`;
 }
 const RCREDS = {
-  admin:'admin@mahjooz.app|admin123', staff:'staff@mahjooz.app|staff123',
+  admin:'admin@mahjooz.app|123456', staff:'staff@mahjooz.app|staff123',
   vendor:'vendor-service@mahjooz.app|vendor123', driver:'driver@mahjooz.app|driver123',
   customer:'customer@mahjooz.app|customer123',
   provider:'provider-demo@mahjooz.app|provider123',
@@ -1344,6 +1481,7 @@ async function _signIn(email, pass) {
   
   State.currentUser = { uid: cred.user.uid, ...ud };
   await ensureWallet(cred.user.uid);
+  if (typeof listenToNotifications === 'function') listenToNotifications(cred.user.uid);
   toast(`أهلاً ${ud.name} 👋`,'success');
   if (ud.role==='vendor' && ud.firstLogin) { await navigate('vendor'); showChangePwModal(); return; }
   const rp = { admin:'admin', staff:'staff', vendor:'vendor', driver:'driver', customer:'home', provider:'vendor' };
@@ -1764,10 +1902,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (typeof applyLang === 'function') applyLang();
   showLoader(typeof t === 'function' ? t('setting_up') : 'جاري إعداد المنصة...');
 
-  // Pre-fetch regions EARLY (non-blocking) so signup form finds them ready
+  // Pre-fetch delivery zones EARLY (non-blocking) so signup form finds them ready
   // Uses a short timeout so it doesn't delay app startup
   Promise.race([
-    fsGetAll('regions').then(data => { AppData.regions = data; }).catch(() => {}),
+    fsGetAll('delivery_zones').then(data => { AppData.deliveryZones = data; AppData.regions = data; }).catch(() => {}),
     _timeout(4000)
   ]).catch(() => {});
 
@@ -1793,6 +1931,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (ud) {
           State.currentUser = { uid: firebaseUser.uid, ...ud };
           ensureWallet(firebaseUser.uid).catch(()=>{});
+          if (typeof listenToNotifications === 'function') listenToNotifications(firebaseUser.uid);
           const rp = { admin:'admin', staff:'staff', vendor:'vendor', driver:'driver', customer:'home', provider:'vendor' };
           
           let searchStr = window.location.search;
@@ -1856,13 +1995,13 @@ window.ph_onFormGovChange = function(govSelectId, regionSelectId, selectedRegion
     regSelect.innerHTML = '<option value="">-- اختر المنطقة (تغطية عامة إذا تركت فارغة) --</option>';
     return;
   }
-  const regions = (AppData.regions || []).filter(r => r.govId === govId && r.active !== false);
-  if (regions.length === 0) {
+  const zones = (AppData.deliveryZones || AppData.regions || []).filter(r => r.govId === govId && r.active !== false);
+  if (zones.length === 0) {
     regSelect.innerHTML = '<option value="">-- لا توجد مناطق مضافة في هذه المحافظة --</option>';
     return;
   }
   regSelect.innerHTML = '<option value="">-- اختر المنطقة --</option>' +
-    regions.map(r => `<option value="${r.id}" ${r.id === selectedRegionId ? 'selected' : ''}>${escHtml(r.name)}</option>`).join('');
+    zones.map(r => `<option value="${r.id}" ${r.id === selectedRegionId ? 'selected' : ''}>${escHtml(r.name)}</option>`).join('');
 };
 
 window.ph_matchesLocation = function(item, userRegionId, userGovId, parentStore = null) {

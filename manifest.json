@@ -29,19 +29,19 @@
       "name": "حجوزاتي",
       "short_name": "حجوزاتي",
       "description": "عرض الطلبات الحالية",
-      "url": "/?p=myorders"
+      "url": "/?page=myorders"
     },
     {
       "name": "محفظتي",
       "short_name": "محفظتي",
       "description": "إدارة الرصيد",
-      "url": "/?p=wallet"
+      "url": "/?page=wallet"
     },
     {
       "name": "المفضّلة",
       "short_name": "المفضّلة",
       "description": "الخدمات المحفوظة",
-      "url": "/?p=favorites"
+      "url": "/?page=favorites"
     }
   ]
 }

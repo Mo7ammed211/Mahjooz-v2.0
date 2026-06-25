@@ -144,7 +144,11 @@
     if (!b) return;
     b.classList.remove('visible');
     b.classList.add('hiding');
-    setTimeout(() => b.classList.remove('hiding'), 450);
+    // بعد انتهاء الـ animation، نُخفي تماماً
+    setTimeout(() => {
+      b.classList.remove('hiding');
+      b.style.display = 'none'; // إخفاء نهائي صريح
+    }, 460);
   }
 
   // ── Init: show button always unless already installed ──

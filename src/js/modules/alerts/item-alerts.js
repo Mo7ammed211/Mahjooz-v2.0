@@ -304,6 +304,103 @@
   }
   .ia-preview-badge-area { flex: 1; }
 
+  /* التنسيق الجديد المضغوط والمنظم في جدول */
+  .ia-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .ia-admin-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  .ia-admin-table tr:last-child td {
+    border-bottom: none;
+  }
+  .ia-table-label {
+    width: 25%;
+    font-weight: 800;
+    color: var(--text-muted, #94a3b8);
+    font-family: var(--font, 'Cairo', sans-serif);
+    font-size: 11.5px;
+    text-align: right;
+  }
+  
+  .ia-status-btn-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    background: var(--bg-card, rgba(255,255,255,0.02));
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font, 'Cairo');
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted, #94a3b8);
+  }
+  .ia-status-btn-compact:hover {
+    border-color: var(--primary,#7c3aed);
+    background: rgba(124,58,237,0.05);
+  }
+  .ia-status-btn-compact.selected {
+    border-color: var(--selected-color, #10b981);
+    background: rgba(var(--selected-rgb, 16,185,129), 0.08);
+    color: var(--selected-color, #10b981);
+  }
+
+  .ia-badge-type-btn-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--font,'Cairo');
+    font-size: 11px;
+    font-weight: 700;
+    transition: all 0.15s;
+    color: var(--text-muted);
+  }
+  .ia-badge-type-btn-compact:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,0.15);
+  }
+  .ia-badge-type-btn-compact.sel-info    { background: rgba(59,130,246,0.1);  border-color:#3b82f6; color:#3b82f6; }
+  .ia-badge-type-btn-compact.sel-warning { background: rgba(245,158,11,0.1);  border-color:#f59e0b; color:#f59e0b; }
+  .ia-badge-type-btn-compact.sel-danger  { background: rgba(239,68,68,0.1);   border-color:#ef4444; color:#ef4444; }
+  .ia-badge-type-btn-compact.sel-success { background: rgba(16,185,129,0.1);  border-color:#10b981; color:#10b981; }
+  .ia-badge-type-btn-compact.sel-promo   { background: rgba(245,158,11,0.15); border-color:#f59e0b; color:#d97706; }
+
+  .ia-quick-chip-compact {
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border,rgba(255,255,255,0.06));
+    background: var(--bg-card,rgba(255,255,255,0.02));
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font,'Cairo');
+    white-space: nowrap;
+  }
+  .ia-quick-chip-compact:hover {
+    border-color: var(--primary,#7c3aed);
+    color: var(--primary,#7c3aed);
+    background: rgba(124,58,237,0.04);
+  }
+  .ia-quick-chip-compact.selected {
+    border-color: var(--primary,#7c3aed);
+    background: rgba(124,58,237,0.1);
+    color: var(--primary,#7c3aed);
+  }
   `;
   document.head.appendChild(style);
 
@@ -411,87 +508,107 @@
     ];
 
     return `
-    <div class="ia-admin-section" id="ia-admin-section">
-      <div class="ia-admin-section-title">🔔 التنبيهات وحالة التوفر</div>
+    <div class="ia-admin-section" id="ia-admin-section" style="padding: 12px; border-radius: 12px; margin-top: 10px;">
+      <div class="ia-admin-section-title" style="font-size: 13px; margin-bottom: 8px;">🔔 التنبيهات وحالة التوفر</div>
 
-      <!-- ── حالة التوفر ───────────────────────────────── -->
-      <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">📦 حالة التوفر</div>
-      <div class="ia-status-grid">
-        ${STOCK_STATUSES.map(st => `
-          <button type="button"
-            class="ia-status-btn${status === st.key ? ' selected' : ''}"
-            data-status="${st.key}"
-            style="${status === st.key ? `--selected-color:${st.color};--selected-rgb:${st.rgb}` : ''}"
-            onclick="ph48_selectStatus('${st.key}','${st.color}','${st.rgb}')">
-            <span class="ia-status-icon">${st.icon}</span>
-            <span>${st.label}</span>
-          </button>
-        `).join('')}
-      </div>
-      <input type="hidden" id="ia-stock-status" value="${status}">
+      <table class="ia-admin-table">
+        <tbody>
+          <!-- ── حالة التوفر ── -->
+          <tr>
+            <td class="ia-table-label">📦 حالة التوفر</td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                ${STOCK_STATUSES.map(st => `
+                  <button type="button"
+                    class="ia-status-btn-compact${status === st.key ? ' selected' : ''}"
+                    data-status="${st.key}"
+                    style="${status === st.key ? `--selected-color:${st.color};--selected-rgb:${st.rgb}` : ''}"
+                    onclick="ph48_selectStatus('${st.key}','${st.color}','${st.rgb}')">
+                    <span style="font-size: 13px;">${st.icon}</span>
+                    <span>${st.label}</span>
+                  </button>
+                `).join('')}
+              </div>
+              <input type="hidden" id="ia-stock-status" value="${status}">
+            </td>
+          </tr>
 
-      <div style="height:1px;background:rgba(255,255,255,0.06);margin:14px 0"></div>
+          <!-- ── الشارة التنبيهية ── -->
+          <tr>
+            <td class="ia-table-label">🏷️ شارة التنبيه</td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                ${badgeTypes.map(bt => `
+                  <button type="button"
+                    class="ia-badge-type-btn-compact${ab.type === bt.key ? ' sel-'+bt.key : ''}"
+                    data-btype="${bt.key}"
+                    onclick="ph48_selectBadgeType('${bt.key}')">
+                    <span style="font-size: 12px;">${bt.icon}</span> ${bt.label}
+                  </button>
+                `).join('')}
+                <button type="button"
+                  class="ia-badge-type-btn-compact${!ab.type ? ' sel-info' : ''}"
+                  style="color:#64748b"
+                  onclick="ph48_selectBadgeType('')">
+                  🚫 بلا شارة
+                </button>
+              </div>
+              <input type="hidden" id="ia-badge-type" value="${ab.type || ''}">
+            </td>
+          </tr>
 
-      <!-- ── الشارة التنبيهية ──────────────────────────── -->
-      <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🏷️ الشارة التنبيهية (اختياري)</div>
+          <!-- ── نصوص سريعة ── -->
+          <tr>
+            <td class="ia-table-label">⚡ نصوص جاهزة</td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                ${QUICK_TEXTS.map(qt => `
+                  <button type="button"
+                    class="ia-quick-chip-compact${ab.text === qt.text ? ' selected' : ''}"
+                    onclick="ph48_pickQuickText('${escAttr(qt.icon)}','${escAttr(qt.text)}','${qt.type}')">
+                    ${qt.icon} ${qt.text}
+                  </button>
+                `).join('')}
+                <button type="button" class="ia-quick-chip-compact" onclick="document.getElementById('ia-badge-text').focus()">
+                  ✏️ نص مخصص
+                </button>
+              </div>
+            </td>
+          </tr>
 
-      <!-- نوع الشارة -->
-      <div class="ia-badge-row" style="margin-bottom:10px">
-        ${badgeTypes.map(bt => `
-          <button type="button"
-            class="ia-badge-type-btn${ab.type === bt.key ? ' sel-'+bt.key : ''}"
-            data-btype="${bt.key}"
-            onclick="ph48_selectBadgeType('${bt.key}')">
-            ${bt.icon} ${bt.label}
-          </button>
-        `).join('')}
-        <button type="button"
-          class="ia-badge-type-btn${!ab.type ? ' sel-info' : ''}"
-          style="grid-column: span 1; color:#64748b"
-          onclick="ph48_selectBadgeType('')">
-          🚫 بلا شارة
-        </button>
-      </div>
-      <input type="hidden" id="ia-badge-type" value="${ab.type || ''}">
+          <!-- ── الشارة المخصصة ── -->
+          <tr>
+            <td class="ia-table-label">✍️ الشارة والرمز</td>
+            <td>
+              <div style="display: flex; gap: 8px; align-items: center; max-width: 500px;">
+                <div style="width: 70px; flex-shrink: 0;">
+                  <input class="form-control form-control-sm" id="ia-badge-icon" value="${escAttr(ab.icon||'')}" placeholder="⚡" style="text-align:center; font-size:14px; height: 32px; padding: 2px 4px;">
+                </div>
+                <div style="flex: 1;">
+                  <input class="form-control form-control-sm" id="ia-badge-text" value="${escAttr(ab.text||'')}" placeholder="مثال: كمية محدودة — أطلب الآن!" oninput="ph48_updatePreview()" style="font-size:12px; height: 32px; padding: 2px 8px;">
+                </div>
+              </div>
+            </td>
+          </tr>
 
-      <!-- نصوص سريعة -->
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:7px">⚡ نصوص سريعة:</div>
-      <div class="ia-quick-text">
-        ${QUICK_TEXTS.map(qt => `
-          <button type="button"
-            class="ia-quick-chip${ab.text === qt.text ? ' selected' : ''}"
-            onclick="ph48_pickQuickText('${escAttr(qt.icon)}','${escAttr(qt.text)}','${qt.type}')">
-            ${qt.icon} ${qt.text}
-          </button>
-        `).join('')}
-        <button type="button" class="ia-quick-chip" onclick="document.getElementById('ia-badge-text').focus()">
-          ✏️ كتابة نص مخصص
-        </button>
-      </div>
+          <!-- ── تاريخ انتهاء الشارة ── -->
+          <tr>
+            <td class="ia-table-label">⏰ تاريخ الانتهاء</td>
+            <td>
+              <input class="form-control form-control-sm" type="date" id="ia-badge-expires" value="${expVal}" style="max-width: 160px; height: 32px; font-size: 12px; padding: 2px 8px;">
+              <span style="font-size: 11px; color: var(--text-muted); margin-inline-start: 8px;">(اتركه فارغاً لشارة دائمة)</span>
+            </td>
+          </tr>
 
-      <!-- حقل النص وأيقونة -->
-      <div style="display:grid;grid-template-columns:56px 1fr;gap:8px;margin-bottom:10px">
-        <div>
-          <label class="form-label" style="font-size:11px">أيقونة</label>
-          <input class="form-control" id="ia-badge-icon" value="${escAttr(ab.icon||'')}" placeholder="⚡" style="text-align:center;font-size:18px">
-        </div>
-        <div>
-          <label class="form-label" style="font-size:11px">نص التنبيه</label>
-          <input class="form-control" id="ia-badge-text" value="${escAttr(ab.text||'')}" placeholder="مثال: كمية محدودة — أطلب الآن!" oninput="ph48_updatePreview()">
-        </div>
-      </div>
-
-      <!-- تاريخ انتهاء الشارة -->
-      <div class="form-group" style="margin-bottom:10px">
-        <label class="form-label" style="font-size:11px">⏰ تاريخ انتهاء الشارة (فارغ = دائم)</label>
-        <input class="form-control" type="date" id="ia-badge-expires" value="${expVal}">
-      </div>
-
-      <!-- معاينة مباشرة -->
-      <div class="ia-preview-wrap">
-        <span class="ia-preview-label">معاينة:</span>
-        <div class="ia-preview-badge-area" id="ia-badge-preview">${ph48_badgeHtml(item)}</div>
-      </div>
+          <!-- ── معاينة ── -->
+          <tr>
+            <td class="ia-table-label">👁️ معاينة الشارة</td>
+            <td>
+              <div id="ia-badge-preview">${ph48_badgeHtml(item)}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>`;
   };
 
@@ -501,7 +618,7 @@
 
   window.ph48_selectStatus = function (key, color, rgb) {
     document.getElementById('ia-stock-status').value = key;
-    document.querySelectorAll('.ia-status-btn').forEach(btn => {
+    document.querySelectorAll('.ia-status-btn, .ia-status-btn-compact').forEach(btn => {
       const isSelected = btn.dataset.status === key;
       btn.classList.toggle('selected', isSelected);
       if (isSelected) {
@@ -513,8 +630,11 @@
 
   window.ph48_selectBadgeType = function (type) {
     document.getElementById('ia-badge-type').value = type;
-    document.querySelectorAll('.ia-badge-type-btn').forEach(btn => {
-      btn.className = 'ia-badge-type-btn' + (btn.dataset.btype === type ? ' sel-'+type : '');
+    document.querySelectorAll('.ia-badge-type-btn, .ia-badge-type-btn-compact').forEach(btn => {
+      const isCompact = btn.classList.contains('ia-badge-type-btn-compact');
+      const baseClass = isCompact ? 'ia-badge-type-btn-compact' : 'ia-badge-type-btn';
+      const selClass = btn.dataset.btype === type ? ' sel-'+type : (type === '' && !btn.dataset.btype ? ' sel-info' : '');
+      btn.className = baseClass + selClass;
     });
     ph48_updatePreview();
   };
@@ -525,7 +645,7 @@
     if (iconEl) iconEl.value = icon;
     if (textEl) textEl.value = text;
     ph48_selectBadgeType(type);
-    document.querySelectorAll('.ia-quick-chip').forEach(c =>
+    document.querySelectorAll('.ia-quick-chip, .ia-quick-chip-compact').forEach(c =>
       c.classList.toggle('selected', c.textContent.trim().includes(text.trim().slice(0,10)))
     );
     ph48_updatePreview();

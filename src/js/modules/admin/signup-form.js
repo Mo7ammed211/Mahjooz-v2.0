@@ -153,7 +153,7 @@ async function loadSignupConfig() {
   }
 }
 
-function renderAdminSignupSettings() {
+window.renderAdminSignupSettings = function renderAdminSignupSettings() {
   if (!AppData.signupConfig) {
     loadSignupConfig().then(() => render());
     return `<div style="padding:40px;text-align:center">جاري تحميل إعدادات التسجيل...</div>`;

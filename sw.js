@@ -1,4 +1,4 @@
-const CACHE = 'mahjooz-v8';
+const CACHE = 'mahjooz-v9';
 const STATIC = [
   '/',
   '/index.html',

@@ -1910,24 +1910,25 @@ function ph43_renderAdminStoreDetail(storeId) {
     </div>
   </div>
 
-  <div style="display:flex;gap:20px;align-items:flex-start">
-    <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:4px">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;padding:0 4px">الأقسام</div>
-      <button class="au-sidebar-btn${!activeCat ? ' active' : ''}" onclick="State.adminStoreCat=null;render()">
-        <span>🛍️</span><span style="flex:1">الكل</span>
-        <span class="au-sidebar-count">${(AppData.storeProducts || []).filter(p => p.storeId === storeId).length}</span>
-      </button>
-      ${cats.map(c => {
-        const cnt = (AppData.storeProducts || []).filter(p => p.storeId === storeId && p.catId === c.id).length;
-        return `<button class="au-sidebar-btn${activeCat === c.id ? ' active' : ''}" onclick="State.adminStoreCat='${c.id}';render()">
-          <span>${c.icon || '📦'}</span>
-          <span style="flex:1;text-align:right">${escHtml(c.name)}</span>
-          <span class="au-sidebar-count">${cnt}</span>
-        </button>`;
-      }).join('')}
-    </div>
+  <!-- شريط الأقسام الأفقي المتطور -->
+  <div class="ph43-cats-tabs-wrap">
+    <div class="ph43-cats-title">📂 الأقسام:</div>
+    <button class="ph43-cat-tab${!activeCat ? ' active' : ''}" onclick="State.adminStoreCat=null;render()">
+      <span class="ph43-cat-tab-icon">🛍️</span>
+      <span>الكل</span>
+      <span class="ph43-cat-tab-count">${(AppData.storeProducts || []).filter(p => p.storeId === storeId).length}</span>
+    </button>
+    ${cats.map(c => {
+      const cnt = (AppData.storeProducts || []).filter(p => p.storeId === storeId && p.catId === c.id).length;
+      return `<button class="ph43-cat-tab${activeCat === c.id ? ' active' : ''}" onclick="State.adminStoreCat='${c.id}';render()">
+        <span class="ph43-cat-tab-icon">${c.icon || '📦'}</span>
+        <span>${escHtml(c.name)}</span>
+        <span class="ph43-cat-tab-count">${cnt}</span>
+      </button>`;
+    }).join('')}
+  </div>
 
-    <div style="flex:1;min-width:0">
+  <div style="width:100%" data-ph43-products-container="true">
       ${products.length ? `
       <div class="table-wrap" style="max-height: calc(100vh - 220px); overflow-y: auto; -webkit-overflow-scrolling: touch;">
         <table class="admin-table">
@@ -1945,7 +1946,11 @@ function ph43_renderAdminStoreDetail(storeId) {
                   ${p.unit ? `<div style="font-size:11px;color:var(--text-muted)">${escHtml(p.unit)}</div>` : ''}
                 </td>
                 <td>${cat ? `<span class="badge badge-purple">${cat.icon || '📦'} ${escHtml(cat.name)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-                <td style="font-weight:700;color:var(--primary)">${(p.price || 0).toLocaleString('ar-YE')} ريال</td>
+                <td style="font-weight:700">${
+                  (p.tiers && p.tiers.length > 0)
+                    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(139,92,246,0.04));color:var(--primary);border:1px solid rgba(139,92,246,0.25);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700">🏷️ ${p.tiers.length} فئات</span><div style="font-size:11px;color:var(--text-muted);margin-top:3px">من ${Math.min(...p.tiers.map(t=>t.price||0)).toLocaleString('ar-YE')} ريال</div>`
+                    : `<span style="color:var(--primary)">${(p.price || 0).toLocaleString('ar-YE')} ريال</span>`
+                }</td>
                 <td><span class="badge ${p.active !== false ? 'badge-teal' : 'badge-rose'}">${p.active !== false ? '✅ نشط' : '⏸️'}</span></td>
                 <td>
                   <button class="btn btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff" onclick="ph43_showProductTiersModal('${p.id}','${storeId}')" title="فئات المنتج">🏷️</button>
@@ -1963,7 +1968,6 @@ function ph43_renderAdminStoreDetail(storeId) {
         <div class="empty-title">لا توجد منتجات${activeCat ? ' في هذا القسم' : ''}</div>
         <button class="btn btn-primary" style="margin-top:16px" onclick="ph43_showAddProductModal('${storeId}')">➕ إضافة منتج</button>
       </div>`}
-    </div>
   </div>`;
 }
 
@@ -2737,28 +2741,26 @@ window.ph43_renderProductTierSelector = function (product) {
   if (!tiers || !tiers.length) return '';
   return `
     <div class="ph40-tier-selector">
-      <label class="form-label" style="font-size:15px;font-weight:700;margin-bottom:10px;display:block">
-        🏷️ اختر الفئة المناسبة
-      </label>
-      <div class="ph40-tier-cards" id="ph43-tier-cards">
+      <div class="ph40-tier-selector-header">
+        <span class="ph40-tier-selector-title">🏷️ اختر الفئة المناسبة</span>
+        <span class="ph40-tier-count-badge">${tiers.length} فئات متاحة</span>
+      </div>
+      <div class="ph40-tier-cards-grid" id="ph43-tier-cards">
         ${tiers.map((tier, idx) => `
-          <div class="ph40-tier-card${idx === 0 ? ' selected' : ''}" id="ph43-tc-${idx}"
+          <div class="ph40-tier-card-v2${idx === 0 ? ' selected' : ''}" id="ph43-tc-${idx}"
                onclick="ph43_selectProductTier(${idx}, ${tier.price || 0}, '${escAttr(tier.name)}')">
-            <div class="ph40-tc-header">
-              <span class="ph40-tc-icon">${tier.icon || '🏷️'}</span>
-              <div class="ph40-tc-info">
-                <div class="ph40-tc-name">${escHtml(tier.name)}</div>
-                ${tier.desc ? `<div class="ph40-tc-desc-inline">${escHtml(tier.desc)}</div>` : ''}
-              </div>
-              <div class="ph40-tc-price-wrap">
-                <div class="ph40-tc-price">${(tier.price || 0).toLocaleString('ar-YE')}</div>
-                <div class="ph40-tc-currency">ريال</div>
-              </div>
-              <span class="ph40-tc-check" id="ph43-check-${idx}">${idx === 0 ? '✅' : ''}</span>
+            <div class="ph40-tcv2-check" id="ph43-check-${idx}">${idx === 0 ? '✓' : ''}</div>
+            <div class="ph40-tcv2-icon">${tier.icon || '🏷️'}</div>
+            <div class="ph40-tcv2-name">${escHtml(tier.name)}</div>
+            ${tier.desc ? `<div class="ph40-tcv2-desc">${escHtml(tier.desc)}</div>` : ''}
+            <div class="ph40-tcv2-price-row">
+              <span class="ph40-tcv2-price">${(tier.price || 0).toLocaleString('ar-YE')}</span>
+              <span class="ph40-tcv2-cur">ريال</span>
             </div>
             ${tier.features && tier.features.length ? `
-              <div class="ph40-tc-features">
-                ${tier.features.map(f => `<span class="ph40-tc-feat">✓ ${escHtml(f)}</span>`).join('')}
+              <div class="ph40-tcv2-features">
+                ${tier.features.slice(0,3).map(f => `<span class="ph40-tcv2-feat">✓ ${escHtml(f)}</span>`).join('')}
+                ${tier.features.length > 3 ? `<span class="ph40-tcv2-feat ph40-tcv2-feat-more">+${tier.features.length - 3}</span>` : ''}
               </div>` : ''}
           </div>`).join('')}
       </div>
@@ -2766,10 +2768,13 @@ window.ph43_renderProductTierSelector = function (product) {
 };
 
 window.ph43_selectProductTier = function (idx, price, name) {
-  document.querySelectorAll('#ph43-tier-cards .ph40-tier-card').forEach((c, i) => {
+  // Support both old (.ph40-tier-card) and new (.ph40-tier-card-v2) layouts
+  const cards = document.querySelectorAll('#ph43-tier-cards .ph40-tier-card, #ph43-tier-cards .ph40-tier-card-v2');
+  const isV2  = document.querySelector('#ph43-tier-cards .ph40-tier-card-v2') !== null;
+  cards.forEach((c, i) => {
     c.classList.toggle('selected', i === idx);
     const chk = document.getElementById('ph43-check-' + i);
-    if (chk) chk.textContent = i === idx ? '✅' : '';
+    if (chk) chk.textContent = i === idx ? (isV2 ? '✓' : '✅') : '';
   });
   window.__ph43_selectedProductTier = { idx, price, name };
 };
@@ -2799,6 +2804,78 @@ setInterval(ph43_updateCartBadge, 1000);
   window.__ph43Styles = true;
   const s = document.createElement('style');
   s.textContent = `
+    /* ── Horizontal Categories Layout ── */
+    .ph43-cats-tabs-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    .ph43-cats-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-inline-end: 4px;
+      font-family: var(--font, 'Cairo');
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .ph43-cat-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted, #94a3b8);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font, 'Cairo');
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .ph43-cat-tab:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .ph43-cat-tab.active {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(124, 58, 237, 0.18));
+      border-color: var(--primary, #7c3aed);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(124, 58, 237, 0.18);
+    }
+    .ph43-cat-tab-icon {
+      font-size: 16px;
+    }
+    .ph43-cat-tab-count {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted, #94a3b8);
+      border-radius: 6px;
+      padding: 1px 7px;
+      font-size: 10.5px;
+      font-weight: 800;
+      min-width: 20px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .ph43-cat-tab.active .ph43-cat-tab-count {
+      background: var(--primary, #7c3aed);
+      color: #fff;
+    }
+
     /* ── View Toggle ── */
     .ph43-view-toggle { display:flex; gap:4px; background:var(--bg-secondary); border-radius:12px; padding:4px; border:1px solid var(--border); }
     .ph43-vtbtn { display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:9px; border:none; background:transparent; cursor:pointer; font-size:12px; font-weight:600; color:var(--text-muted); font-family:inherit; transition:all 0.18s; }
@@ -3042,21 +3119,41 @@ setInterval(ph43_updateCartBadge, 1000);
     .ph40-add-tier-form { background:var(--bg-secondary); border:1.5px dashed var(--glass-border); border-radius:16px; padding:18px; margin-top:24px; text-align:right; }
     .ph40-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
     
+    /* ── Tier Selector v2 (Grid) ── */
     .ph40-tier-selector { margin-bottom:20px; text-align:right; }
+    .ph40-tier-selector-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .ph40-tier-selector-title { font-size:15px; font-weight:800; color:var(--text-main); }
+    .ph40-tier-count-badge { background:rgba(139,92,246,0.12); color:var(--primary); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:3px 10px; font-size:12px; font-weight:700; }
+    .ph40-tier-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+    .ph40-tier-card-v2 { background:var(--bg-card); border:2px solid var(--glass-border); border-radius:14px; padding:14px 12px; cursor:pointer; transition:all 0.22s cubic-bezier(0.4,0,0.2,1); position:relative; text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .ph40-tier-card-v2:hover { border-color:rgba(139,92,246,0.35); background:var(--bg-secondary); transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,0.1); }
+    .ph40-tier-card-v2.selected { border-color:var(--primary); background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(139,92,246,0.04)); box-shadow:0 6px 20px rgba(139,92,246,0.2); }
+    .ph40-tcv2-check { position:absolute; top:8px; left:8px; width:20px; height:20px; border-radius:50%; border:2px solid var(--glass-border); background:var(--bg-secondary); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:transparent; transition:all 0.2s; }
+    .ph40-tier-card-v2.selected .ph40-tcv2-check { border-color:var(--primary); background:var(--primary); color:#fff; }
+    .ph40-tcv2-icon { font-size:28px; margin-top:4px; }
+    .ph40-tcv2-name { font-weight:800; font-size:13px; color:var(--text-main); line-height:1.3; }
+    .ph40-tcv2-desc { font-size:11px; color:var(--text-muted); line-height:1.4; }
+    .ph40-tcv2-price-row { display:flex; align-items:baseline; gap:3px; justify-content:center; margin-top:4px; }
+    .ph40-tcv2-price { font-size:17px; font-weight:800; color:var(--primary); }
+    .ph40-tcv2-cur { font-size:11px; font-weight:600; color:var(--text-muted); }
+    .ph40-tcv2-features { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; padding-top:8px; border-top:1px solid var(--glass-border); width:100%; margin-top:4px; }
+    .ph40-tcv2-feat { font-size:10px; color:var(--text-secondary); background:var(--bg-secondary); border-radius:5px; padding:2px 6px; font-weight:600; }
+    .ph40-tcv2-feat-more { background:rgba(139,92,246,0.1); color:var(--primary); }
+    /* Legacy fallback */
     .ph40-tier-cards { display:flex; flex-direction:column; gap:10px; }
-    .ph40-tier-card { background:var(--bg-card); border:1.5px solid var(--glass-border); border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1); position:relative; overflow:hidden; text-align:right; }
-    .ph40-tier-card:hover { border-color:rgba(139,92,246,0.3); background:var(--bg-secondary); }
-    .ph40-tier-card.selected { border-color:var(--primary); background:linear-gradient(135deg,rgba(139,92,246,0.06),rgba(139,92,246,0.02)); box-shadow:0 6px 18px rgba(139,92,246,0.08); }
-    .ph40-tc-header { display:flex; align-items:center; gap:12px; width:100%; }
+    .ph40-tier-card { background:var(--bg-card); border:1.5px solid var(--glass-border); border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s; position:relative; text-align:right; }
+    .ph40-tier-card:hover { border-color:rgba(139,92,246,0.3); }
+    .ph40-tier-card.selected { border-color:var(--primary); background:linear-gradient(135deg,rgba(139,92,246,0.06),rgba(139,92,246,0.02)); }
+    .ph40-tc-header { display:flex; align-items:center; gap:12px; }
     .ph40-tc-icon { font-size:24px; flex-shrink:0; }
     .ph40-tc-info { flex:1; min-width:0; }
-    .ph40-tc-name { font-weight:700; font-size:14px; color:var(--text-main); }
-    .ph40-tc-desc-inline { font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .ph40-tc-price-wrap { text-align:left; flex-shrink:0; margin-inline-start:auto; display:flex; flex-direction:column; align-items:flex-end; }
+    .ph40-tc-name { font-weight:700; font-size:14px; }
+    .ph40-tc-desc-inline { font-size:11px; color:var(--text-muted); }
+    .ph40-tc-price-wrap { flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; }
     .ph40-tc-price { font-size:18px; font-weight:800; color:var(--primary); }
     .ph40-tc-currency { font-size:10px; color:var(--text-muted); font-weight:600; }
     .ph40-tc-check { font-size:16px; margin-inline-start:8px; flex-shrink:0; min-width:20px; text-align:center; }
-    .ph40-tc-features { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--glass-border); justify-content:flex-start; }
+    .ph40-tc-features { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--glass-border); }
     .ph40-tc-feat { font-size:11px; color:var(--text-secondary); background:var(--bg-secondary); border-radius:6px; padding:2px 8px; font-weight:500; }
   `;
   document.head.appendChild(s);

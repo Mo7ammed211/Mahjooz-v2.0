@@ -25,6 +25,18 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    match /delivery_governorates/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /delivery_zones/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /delivery_subzones/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     match /categories/{id} {
       allow read: if true;
       allow write: if isAdmin();

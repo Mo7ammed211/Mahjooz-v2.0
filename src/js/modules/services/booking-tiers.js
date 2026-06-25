@@ -305,38 +305,37 @@ window.ph40_renderTierSelector = function (svc) {
 
   return `
     <div class="ph40-tier-selector">
-      <label class="form-label" style="font-size:15px;font-weight:700;margin-bottom:10px;display:block">
-        🏷️ اختر الفئة المناسبة لك
-      </label>
-      
+      <div class="ph40-tier-selector-header">
+        <span class="ph40-tier-selector-title">🏷️ اختر الفئة المناسبة لك</span>
+        <span class="ph40-tier-count-badge">${tiers.length} فئات متاحة</span>
+      </div>
+
       ${tabsHtml}
 
-      <div class="ph40-tier-cards" id="ph40-tier-cards">
+      <div class="ph40-tier-cards-grid" id="ph40-tier-cards">
         ${tiers.map((tier, idx) => `
-          <div class="ph40-tier-card${idx === 0 ? ' selected' : ''}" 
+          <div class="ph40-tier-card-v2${idx === 0 ? ' selected' : ''}"
                id="ph40-tc-${idx}"
                data-cat-id="${tier.internalCatId || ''}"
                onclick="ph40_selectTier(${idx}, ${tier.price || 0}, '${escAttr(tier.name)}')">
-            <div class="ph40-tc-header">
-              <span class="ph40-tc-icon">${tier.icon || '🏷️'}</span>
-              <div class="ph40-tc-info">
-                <div class="ph40-tc-name">${escHtml(tier.name)}</div>
-                ${tier.desc ? `<div class="ph40-tc-desc-inline">${escHtml(tier.desc)}</div>` : ''}
-              </div>
-              <div class="ph40-tc-price-wrap">
-                <div class="ph40-tc-price">${(tier.price || 0).toLocaleString('ar-YE')}</div>
-                <div class="ph40-tc-currency">ريال</div>
-              </div>
-              <span class="ph40-tc-check" id="ph40-check-${idx}">${idx === 0 ? '✅' : ''}</span>
+            <div class="ph40-tcv2-check" id="ph40-check-${idx}">${idx === 0 ? '✓' : ''}</div>
+            <div class="ph40-tcv2-icon">${tier.icon || '🏷️'}</div>
+            <div class="ph40-tcv2-name">${escHtml(tier.name)}</div>
+            ${tier.desc ? `<div class="ph40-tcv2-desc">${escHtml(tier.desc)}</div>` : ''}
+            <div class="ph40-tcv2-price-row">
+              <span class="ph40-tcv2-price">${(tier.price || 0).toLocaleString('ar-YE')}</span>
+              <span class="ph40-tcv2-cur">ريال</span>
             </div>
             ${tier.features && tier.features.length ? `
-              <div class="ph40-tc-features">
-                ${tier.features.map(f => `<span class="ph40-tc-feat">✓ ${escHtml(f)}</span>`).join('')}
+              <div class="ph40-tcv2-features">
+                ${tier.features.slice(0,3).map(f => `<span class="ph40-tcv2-feat">✓ ${escHtml(f)}</span>`).join('')}
+                ${tier.features.length > 3 ? `<span class="ph40-tcv2-feat ph40-tcv2-feat-more">+${tier.features.length - 3}</span>` : ''}
               </div>` : ''}
           </div>`).join('')}
       </div>
     </div>`;
 };
+
 
 window.ph40_filterCustomerTiers = function (serviceId, catId, btn) {
   if (btn) {
@@ -344,45 +343,38 @@ window.ph40_filterCustomerTiers = function (serviceId, catId, btn) {
     btn.classList.add('active');
   }
 
-  const cards = document.querySelectorAll('#ph40-tier-cards .ph40-tier-card');
+  const cards = document.querySelectorAll('#ph40-tier-cards .ph40-tier-card, #ph40-tier-cards .ph40-tier-card-v2');
   let firstVisibleIdx = null;
 
   cards.forEach((card, idx) => {
     const cardCat = card.getAttribute('data-cat-id') || '';
-    let isVisible = false;
-    
-    if (catId === 'all') {
-      isVisible = true;
-    } else {
-      isVisible = (cardCat === catId);
-    }
-
-    card.style.display = isVisible ? 'block' : 'none';
-
-    if (isVisible && firstVisibleIdx === null) {
-      firstVisibleIdx = idx;
-    }
+    let isVisible = catId === 'all' || cardCat === catId;
+    card.style.display = isVisible ? '' : 'none';
+    if (isVisible && firstVisibleIdx === null) firstVisibleIdx = idx;
   });
 
   // Automatically select the first visible tier if the current one is hidden
   if (firstVisibleIdx !== null) {
-    const currentSelected = document.querySelector('#ph40-tier-cards .ph40-tier-card.selected');
+    const currentSelected = document.querySelector('#ph40-tier-cards .ph40-tier-card.selected, #ph40-tier-cards .ph40-tier-card-v2.selected');
     if (!currentSelected || currentSelected.style.display === 'none') {
       const cardEl = document.getElementById('ph40-tc-' + firstVisibleIdx);
-      if (cardEl) {
-        cardEl.click();
-      }
+      if (cardEl) cardEl.click();
     }
   }
 };
 
 window.ph40_selectTier = function (idx, price, name) {
-  document.querySelectorAll('.ph40-tier-card').forEach((c, i) => {
+  const cards = document.querySelectorAll('.ph40-tier-card, .ph40-tier-card-v2');
+  const isV2  = document.querySelector('.ph40-tier-card-v2') !== null;
+  cards.forEach((c, i) => {
     c.classList.toggle('selected', i === idx);
     const chk = document.getElementById('ph40-check-' + i);
-    if (chk) chk.textContent = i === idx ? '✅' : '';
+    if (chk) chk.textContent = i === idx ? (isV2 ? '✓' : '✅') : '';
   });
   window.__ph40_selectedTier = { idx, price, name };
+  if (typeof window.ph40_onTierSelected === 'function') {
+    window.ph40_onTierSelected(idx, price, name);
+  }
 };
 
 window.__ph40_selectedTier = null;
@@ -433,6 +425,28 @@ setTimeout(() => {
     @media(max-width:640px) { .ph40-form-grid { grid-template-columns:1fr; } }
 
     .ph40-tier-selector { margin-bottom:20px; }
+
+    /* ── Tier Selector v2 — Grid Cards (New Design) ── */
+    .ph40-tier-selector-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .ph40-tier-selector-title { font-size:15px; font-weight:800; color:var(--text-main); }
+    .ph40-tier-count-badge { background:rgba(139,92,246,0.12); color:var(--primary); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:3px 10px; font-size:12px; font-weight:700; }
+    .ph40-tier-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-bottom:8px; }
+    .ph40-tier-card-v2 { background:var(--bg-card); border:2px solid var(--glass-border); border-radius:14px; padding:14px 10px; cursor:pointer; transition:all 0.22s cubic-bezier(0.4,0,0.2,1); position:relative; text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .ph40-tier-card-v2:hover { border-color:rgba(139,92,246,0.35); background:var(--bg-secondary); transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,0.1); }
+    .ph40-tier-card-v2.selected { border-color:var(--primary); background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(139,92,246,0.04)); box-shadow:0 6px 20px rgba(139,92,246,0.2); }
+    .ph40-tcv2-check { position:absolute; top:8px; left:8px; width:20px; height:20px; border-radius:50%; border:2px solid var(--glass-border); background:var(--bg-secondary); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:transparent; transition:all 0.2s; }
+    .ph40-tier-card-v2.selected .ph40-tcv2-check { border-color:var(--primary); background:var(--primary); color:#fff; }
+    .ph40-tcv2-icon { font-size:26px; margin-top:4px; }
+    .ph40-tcv2-name { font-weight:800; font-size:13px; color:var(--text-main); line-height:1.3; }
+    .ph40-tcv2-desc { font-size:11px; color:var(--text-muted); line-height:1.4; }
+    .ph40-tcv2-price-row { display:flex; align-items:baseline; gap:3px; justify-content:center; margin-top:4px; }
+    .ph40-tcv2-price { font-size:17px; font-weight:800; color:var(--primary); }
+    .ph40-tcv2-cur { font-size:11px; font-weight:600; color:var(--text-muted); }
+    .ph40-tcv2-features { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; padding-top:8px; border-top:1px solid var(--glass-border); width:100%; margin-top:4px; }
+    .ph40-tcv2-feat { font-size:10px; color:var(--text-secondary); background:var(--bg-secondary); border-radius:5px; padding:2px 6px; font-weight:600; }
+    .ph40-tcv2-feat-more { background:rgba(139,92,246,0.1); color:var(--primary); }
+
+    /* ── Legacy Card Style (fallback) ── */
     .ph40-tier-cards { display:flex;flex-direction:column;gap:10px; }
     .ph40-tier-card { background:var(--bg-card);border:2px solid var(--glass-border);border-radius:16px;padding:14px 16px;cursor:pointer;transition:all 0.2s; }
     .ph40-tier-card:hover { border-color:var(--primary);box-shadow:0 4px 16px rgba(139,92,246,0.15); }
@@ -448,6 +462,7 @@ setTimeout(() => {
     .ph40-tc-check { font-size:18px;min-width:20px;text-align:center; }
     .ph40-tc-features { display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border); }
     .ph40-tc-feat { background:rgba(16,185,129,0.1);color:#10b981;border-radius:8px;padding:3px 10px;font-size:12px; }
+
 
     .ph40-int-tab {
       padding: 6px 14px;

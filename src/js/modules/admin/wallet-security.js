@@ -781,7 +781,7 @@
 
     const me      = State.currentUser;
     const canEdit = me?.role === 'admin' || userHasPerm(me, 'adjust_wallets');
-    const users   = (AppData.users || []).filter(u => u.uid || u.id);
+    const users   = (AppData.users || []).filter(u => (u.uid || u.id) && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase()));
     const q       = (State.wsecSearch || '').toLowerCase();
 
     const filtered = users.filter(u => {
@@ -876,7 +876,7 @@
   window.wsecRenderUserList = function () {
     const me      = State.currentUser;
     const canEdit = me?.role === 'admin' || userHasPerm(me, 'adjust_wallets');
-    const users   = (AppData.users || []).filter(u => u.uid || u.id);
+    const users   = (AppData.users || []).filter(u => (u.uid || u.id) && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase()));
     const q       = (State.wsecSearch || '').toLowerCase();
     const filtered = users.filter(u => {
       if (!q) return true;

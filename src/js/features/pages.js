@@ -617,9 +617,14 @@ function renderServiceCard(s) {
     ? `https://wa.me/${waNum}?text=${encodeURIComponent('أهلاً، أريد الاستفسار أكثر عن الخدمة: ' + s.name)}`
     : '';
   
-  const defaultPriceHtml = s.price
-    ? `<div class="ph-price-block"><span class="ph-price-num">${s.price.toLocaleString('ar-YE')}</span><span class="ph-price-cur">ريال</span></div>`
-    : `<div class="ph-price-block ph-price-on-contact">${isProf ? 'السعر بعد المعاينة' : 'السعر عند التواصل'}</div>`;
+  const hasTiers = s.tiers && s.tiers.length > 0;
+  const minPrice = hasTiers ? Math.min(...s.tiers.map(t => t.price || 0)) : null;
+
+  const defaultPriceHtml = hasTiers
+    ? `<div class="ph-price-block"><span class="ph-price-label">يبدأ من</span><span class="ph-price-num">${minPrice.toLocaleString('ar-YE')}</span><span class="ph-price-cur">ريال</span></div>`
+    : (s.price
+      ? `<div class="ph-price-block"><span class="ph-price-num">${s.price.toLocaleString('ar-YE')}</span><span class="ph-price-cur">ريال</span></div>`
+      : `<div class="ph-price-block ph-price-on-contact">${isProf ? 'السعر بعد المعاينة' : 'السعر عند التواصل'}</div>`);
 
   // ── نظام التنبيهات وحالة التوفر (ph48) ──
   const alertBadgeHtml = typeof ph48_badgeHtml          === 'function' ? ph48_badgeHtml(s)           : '';
@@ -657,7 +662,7 @@ function renderServiceCard(s) {
         ${u?.role==='customer' ? (
           !isSvcAvail
             ? `<button class="btn btn-secondary btn-sm ia-btn-disabled" style="background:rgba(100,116,139,0.3)">🚫 ${s.stockStatus === 'out_of_stock' ? 'نفذت الكمية' : s.stockStatus === 'coming_soon' ? 'قريباً' : 'غير متوفر'}</button>`
-            : `<button class="btn btn-primary btn-sm" data-svc-cart-id="${s.id}" onclick="typeof svc_addToCart==='function'?svc_addToCart('${s.id}'):bookService('${s.id}')">${activeOffer ? '🏷️ اطلب بالسعر المخفض' : '🛒 أضف للسلة'}</button>`
+            : `<button class="btn btn-primary btn-sm" data-svc-cart-id="${s.id}" onclick="${hasTiers ? `bookService('${s.id}')` : `typeof svc_addToCart==='function'?svc_addToCart('${s.id}'):bookService('${s.id}')`}">${activeOffer ? '🏷️ اطلب بالسعر المخفض' : '🛒 أضف للسلة'}</button>`
         ) : u?.role==='guest' ? (
           !isSvcAvail
             ? `<button class="btn btn-secondary btn-sm ia-btn-disabled" style="background:rgba(100,116,139,0.3)">🚫 ${s.stockStatus === 'out_of_stock' ? 'نفذت الكمية' : s.stockStatus === 'coming_soon' ? 'قريباً' : 'غير متوفر'}</button>`
@@ -727,7 +732,25 @@ async function bookService(svcId) {
   } catch (e) {}
   const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
   const hasTiers    = s.tiers && s.tiers.length > 0;
-  const showPrice   = !hasTiers && s.price;
+  const initialPrice = window.__ph40_selectedTier ? window.__ph40_selectedTier.price : (s.price || 0);
+
+  // Define dynamic callback to update prices/deposit inside modal when a tier is selected
+  window.ph40_onTierSelected = function(idx, price, name) {
+    const priceDisp = document.getElementById('bk-selected-price-display');
+    if (priceDisp) {
+      priceDisp.innerHTML = price.toLocaleString('ar-YE') + ' ريال';
+    }
+    if (s.depositPercent) {
+      const depContainer = document.getElementById('bk-deposit-container');
+      if (depContainer) {
+        depContainer.innerHTML = `
+          <div style="margin-bottom:16px;padding:12px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:12px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-secondary)">💰 العربون (${s.depositPercent}%):</span><span style="font-weight:700;color:#10b981" id="bk-deposit-val">${Math.round(price*s.depositPercent/100)} ريال</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:var(--text-muted)">المتبقي عند الوصول:</span><span style="color:var(--text-muted)" id="bk-remaining-val">${price-Math.round(price*s.depositPercent/100)} ريال</span></div>
+          </div>`;
+      }
+    }
+  };
 
   openModal(`
     <div class="modal-header">
@@ -740,18 +763,21 @@ async function bookService(svcId) {
       <div style="flex:1">
         <div style="font-size:17px;font-weight:700">${s.name}</div>
         <!-- Provider hidden -->
-        ${showPrice ? `<div style="font-size:20px;font-weight:800;margin-top:6px;color:var(--primary)">${s.price.toLocaleString('ar-YE')} ريال</div>` : ''}
-
+        <div id="bk-selected-price-display" style="font-size:20px;font-weight:800;margin-top:6px;color:var(--primary)">
+          ${initialPrice ? `${initialPrice.toLocaleString('ar-YE')} ريال` : ''}
+        </div>
       </div>
     </div>
 
+    ${hasTiers ? ph40_renderTierSelector(s) : ''}
 
-
-    ${s.depositPercent && s.price ? `
-    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:12px">
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text-secondary)">💰 العربون (${s.depositPercent}%):</span><span style="font-weight:700;color:#10b981">${Math.round(s.price*s.depositPercent/100)} ريال</span></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:var(--text-muted)">المتبقي عند الوصول:</span><span style="color:var(--text-muted)">${s.price-Math.round(s.price*s.depositPercent/100)} ريال</span></div>
-    </div>` : ''}
+    <div id="bk-deposit-container">
+      ${s.depositPercent && initialPrice ? `
+      <div style="margin-bottom:16px;padding:12px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-secondary)">💰 العربون (${s.depositPercent}%):</span><span style="font-weight:700;color:#10b981" id="bk-deposit-val">${Math.round(initialPrice*s.depositPercent/100)} ريال</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:var(--text-muted)">المتبقي عند الوصول:</span><span style="color:var(--text-muted)" id="bk-remaining-val">${initialPrice-Math.round(initialPrice*s.depositPercent/100)} ريال</span></div>
+      </div>` : ''}
+    </div>
 
     <div class="form-group">
       <label class="form-label">📅 التاريخ المطلوب</label>
@@ -1140,7 +1166,21 @@ async function submitRechargeRequest() {
     });
   }
   const u = State.currentUser;
-  await fsAdd('recharge_requests', { userId: u.uid, userName: u.name, amount, note, proofBase64, status: 'pending' });
+  const rechargeRef = await fsAdd('recharge_requests', { userId: u.uid, userName: u.name, amount, note, proofBase64, status: 'pending' });
+  await fsAdd('depositDocs', {
+    userId: u.uid,
+    userName: u.name,
+    userPhone: u.phone || '',
+    userRole: u.role || 'customer',
+    depositType: 'wallet_recharge',
+    referenceId: rechargeRef.id || '',
+    amount: parseFloat(amount),
+    bankName: note || 'إيداع بنكي لشحن المحفظة',
+    transferDate: new Date().toISOString().split('T')[0],
+    receiptUrl: proofBase64,
+    status: 'pending',
+    createdAt: new Date()
+  });
   closeModal(); toast('تم إرسال طلب الشحن! سيتم المراجعة خلال 24 ساعة ✅','success');
   await navigate('wallet');
 }

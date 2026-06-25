@@ -1,30 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════
    محجوز — Unified Notification Bell  جرس الإشعارات الموحد
-   Replaces: ph19-pill · notif-bell-wrap · da-bell
-   Each source calls: window.__unifiedNotif.update(sourceId, items, count)
+   Redesigned v2.0 — Premium UI with vertical filter sidebar
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
   /* ── Source definitions ─────────────────────────────────────── */
   const SOURCES = {
-    live:   { label: '🛎️ تنبيهات حيّة',  color: '#7c3aed', items: [], count: 0 },
-    notif:  { label: '📨 إشعاراتي',       color: '#0ea5e9', items: [], count: 0 },
-    driver: { label: '🚚 طلبات التوصيل', color: '#0d9488', items: [], count: 0 },
-    wallet: { label: '💰 تنبيهات مالية', color: '#f59e0b', items: [], count: 0 },
-    vendor: { label: '🏪 طلباتي',         color: '#10b981', items: [], count: 0 },
-    errors:   { label: '🚨 أخطاء تقنية',   color: '#ef4444', items: [], count: 0 },
-    activity: { label: '📋 نشاط المنصة',  color: '#a78bfa', items: [], count: 0 },
-  };
-
-  const SOURCE_META = {
-    live:     { label: 'حيّة',         icon: '🛎️' },
-    notif:    { label: 'إشعاراتي',     icon: '📨' },
-    driver:   { label: 'توصيل',        icon: '🚚' },
-    wallet:   { label: 'مالية',        icon: '💰' },
-    vendor:   { label: 'طلباتي',       icon: '🏪' },
-    errors:   { label: 'أخطاء',        icon: '🚨' },
-    activity: { label: 'نشاط المنصة',  icon: '📋' },
+    live:     { label: 'تنبيهات حيّة',   color: '#7c3aed', gradient: 'linear-gradient(135deg,#7c3aed,#a78bfa)', icon: '🛎️', items: [], count: 0 },
+    notif:    { label: 'إشعاراتي',        color: '#0ea5e9', gradient: 'linear-gradient(135deg,#0ea5e9,#38bdf8)', icon: '📨', items: [], count: 0 },
+    driver:   { label: 'طلبات التوصيل',  color: '#0d9488', gradient: 'linear-gradient(135deg,#0d9488,#34d399)', icon: '🚚', items: [], count: 0 },
+    wallet:   { label: 'تنبيهات مالية',  color: '#f59e0b', gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', icon: '💰', items: [], count: 0 },
+    vendor:   { label: 'طلباتي',          color: '#10b981', gradient: 'linear-gradient(135deg,#10b981,#6ee7b7)', icon: '🏪', items: [], count: 0 },
+    errors:   { label: 'أخطاء تقنية',    color: '#ef4444', gradient: 'linear-gradient(135deg,#ef4444,#f87171)', icon: '🚨', items: [], count: 0 },
+    activity: { label: 'نشاط المنصة',    color: '#a78bfa', gradient: 'linear-gradient(135deg,#a78bfa,#c4b5fd)', icon: '📋', items: [], count: 0 },
   };
 
   /* ── Role → relevant sources ───────────────────────────────── */
@@ -81,97 +70,54 @@
     if (panel && panel.classList.contains('ub-open')) _renderPanel();
   }
 
-  /* ── Item Renderers ─────────────────────────────────────────── */
+  /* ── Escape helper ──────────────────────────────────────────── */
   function _esc(s) {
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   }
 
-  function _renderItemLive(item) {
-    const nav = _esc(item.nav || '');
-    return `<div class="ub-item" ${nav ? `onclick="navigate('${nav}');toggleUnifiedNotif()"` : ''}>
-      <span class="ub-item-icon">${item.icon || '📋'}</span>
-      <div class="ub-item-body">
-        <div class="ub-item-title">${_esc(item.title)}</div>
-        ${item.sub ? `<div class="ub-item-sub">${_esc(item.sub)}</div>` : ''}
-        <div class="ub-item-time">${_esc(item.time || '')}</div>
-      </div>
-    </div>`;
+  /* ── Time formatter ─────────────────────────────────────────── */
+  function _fmtTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = ts?.toDate ? ts.toDate() : new Date(ts);
+      const diff = Math.floor((Date.now() - d) / 60000);
+      if (diff < 1)  return 'الآن';
+      if (diff < 60) return `منذ ${diff} دقيقة`;
+      if (diff < 1440) return `منذ ${Math.floor(diff/60)} ساعة`;
+      return `منذ ${Math.floor(diff/1440)} يوم`;
+    } catch { return ''; }
   }
 
-  function _renderItemNotif(item) {
-    const link = item.link ? `'${_esc(item.link)}'` : 'null';
-    return `<div class="ub-item ${item.read ? '' : 'ub-unread'}"
-        onclick="onNotifClick('${_esc(item.id)}',${link});toggleUnifiedNotif()">
-      <span class="ub-item-icon">🔔</span>
+  /* ── Item Renderers ─────────────────────────────────────────── */
+  function _renderItem(item, sourceId) {
+    const src = SOURCES[sourceId] || {};
+    const nav = _esc(item.nav || item.link || '');
+    const isUnread = !item.read || item.unread;
+    const timeStr = item.time || (item.createdAt ? _fmtTime(item.createdAt) : '');
+
+    let onclickStr = '';
+    if (sourceId === 'notif') {
+      onclickStr = `onNotifClick?.('${_esc(item.id)}',${item.link ? `'${_esc(item.link)}'` : 'null'});toggleUnifiedNotif()`;
+    } else if (nav) {
+      onclickStr = `navigate('${nav}');toggleUnifiedNotif()`;
+    }
+
+    return `
+    <div class="ub-item ${isUnread ? 'ub-unread' : ''}" ${onclickStr ? `onclick="${onclickStr}" style="cursor:pointer"` : ''}>
+      <div class="ub-item-icon-wrap" style="background:${src.gradient || src.color}22">
+        <span class="ub-item-icon">${item.icon || src.icon || '🔔'}</span>
+      </div>
       <div class="ub-item-body">
         <div class="ub-item-title">${_esc(item.title || '')}</div>
-        ${item.body ? `<div class="ub-item-sub">${_esc(item.body)}</div>` : ''}
-        <div class="ub-item-time">${typeof fmtDate === 'function' ? fmtDate(item.createdAt) : ''}</div>
+        ${item.sub || item.body ? `<div class="ub-item-sub">${_esc(item.sub || item.body)}</div>` : ''}
+        <div class="ub-item-meta">
+          <span class="ub-item-time">${_esc(timeStr)}</span>
+          ${nav ? `<span class="ub-item-nav-hint">← اضغط للانتقال</span>` : ''}
+        </div>
       </div>
-    </div>`;
-  }
-
-  function _renderItemDriver(item) {
-    return `<div class="ub-item">
-      <span class="ub-item-icon">${item.icon || '🚚'}</span>
-      <div class="ub-item-body">
-        <div class="ub-item-title">${_esc(item.title)}</div>
-        ${item.sub ? `<div class="ub-item-sub">${_esc(item.sub)}</div>` : ''}
-        <div class="ub-item-time">${_esc(item.time || '')}</div>
-      </div>
-    </div>`;
-  }
-
-  function _renderItemVendor(item) {
-    const nav = _esc(item.nav || 'vendor');
-    return `<div class="ub-item" onclick="navigate('${nav}');toggleUnifiedNotif()">
-      <span class="ub-item-icon">${item.icon || '🏪'}</span>
-      <div class="ub-item-body">
-        <div class="ub-item-title">${_esc(item.title)}</div>
-        ${item.sub ? `<div class="ub-item-sub">${_esc(item.sub)}</div>` : ''}
-        <div class="ub-item-time">${_esc(item.time || '')}</div>
-      </div>
-    </div>`;
-  }
-
-  function _renderItemWallet(item) {
-    const nav = _esc(item.nav || '');
-    return `<div class="ub-item ${item.unread ? 'ub-unread' : ''}"
-        ${nav ? `onclick="navigate('${nav}');toggleUnifiedNotif()"` : ''}>
-      <span class="ub-item-icon">${item.icon || '💰'}</span>
-      <div class="ub-item-body">
-        <div class="ub-item-title">${_esc(item.title)}</div>
-        ${item.sub ? `<div class="ub-item-sub">${_esc(item.sub)}</div>` : ''}
-        <div class="ub-item-time">${_esc(item.time || '')}</div>
-      </div>
-      ${item.unread ? '<div class="ub-unread-dot" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;margin-top:4px;"></div>' : ''}
-    </div>`;
-  }
-
-  /* ── Filter Tabs ─────────────────────────────────────────────── */
-  function _renderFilterTabs(roleSources) {
-    if (roleSources.length <= 1) return '';
-
-    const tabs = [{ id: 'all', label: 'الكل', icon: '🔔' }, ...roleSources.map(id => ({
-      id, label: SOURCE_META[id].label, icon: SOURCE_META[id].icon,
-    }))];
-
-    return `<div class="ub-filters">
-      ${tabs.map(t => {
-        const count = t.id === 'all'
-          ? roleSources.reduce((a, id) => a + (SOURCES[id].count || 0), 0)
-          : (SOURCES[t.id]?.count || 0);
-        const isActive = _activeFilter === t.id;
-        return `<button
-          class="ub-filter-tab${isActive ? ' ub-filter-active' : ''}"
-          onclick="setUBFilter('${t.id}')">
-          <span class="ub-tab-icon">${t.icon}</span>
-          <span class="ub-tab-label">${t.label}</span>
-          ${count > 0 ? `<span class="ub-tab-count">${count > 99 ? '99+' : count}</span>` : ''}
-        </button>`;
-      }).join('')}
+      ${isUnread ? `<div class="ub-unread-dot" style="background:${src.color}"></div>` : ''}
     </div>`;
   }
 
@@ -181,67 +127,112 @@
     if (!panel) return;
 
     const roleSources = _getRoleSources();
+    const totalCount = roleSources.reduce((a, id) => a + (SOURCES[id].count || 0), 0);
 
+    // Determine which sources to show based on filter
     const sourcesToShow = _activeFilter === 'all'
       ? roleSources.filter(id => SOURCES[id].items.length > 0)
-      : (roleSources.includes(_activeFilter) && SOURCES[_activeFilter]?.items.length > 0
-          ? [_activeFilter] : []);
+      : (roleSources.includes(_activeFilter) ? [_activeFilter] : []);
 
+    // Check for unread items (for mark all button)
     const hasUnreadNotif = roleSources.includes('notif')
       && (_activeFilter === 'all' || _activeFilter === 'notif')
       && (SOURCES.notif.items || []).some(n => !n.read);
-
-    let body = '';
-    if (sourcesToShow.length === 0) {
-      body = `<div class="ub-empty">
-        <div style="font-size:36px;margin-bottom:10px;">🔕</div>
-        لا توجد إشعارات جديدة
-      </div>`;
-    } else {
-      const showSectionTitle = sourcesToShow.length > 1;
-      body = `<div class="ub-body">${sourcesToShow.map(id => {
-        const src = SOURCES[id];
-        return `<div class="ub-section">
-          ${showSectionTitle
-            ? `<div class="ub-section-title" style="color:${src.color}">${src.label}</div>`
-            : ''}
-          ${src.items.slice(0, 10).map(item =>
-            id === 'live'   ? _renderItemLive(item)   :
-            id === 'notif'  ? _renderItemNotif(item)  :
-            id === 'wallet' ? _renderItemWallet(item) :
-            id === 'vendor' ? _renderItemVendor(item) :
-                              _renderItemDriver(item)
-          ).join('')}
-          ${src.items.length > 10
-            ? `<div class="ub-more">+ ${src.items.length - 10} إشعار آخر</div>` : ''}
-        </div>`;
-      }).join('')}</div>`;
-    }
-
     const hasUnreadWallet = roleSources.includes('wallet')
       && (_activeFilter === 'all' || _activeFilter === 'wallet')
       && (SOURCES.wallet.items || []).some(i => i.unread);
 
-    const markAllBtn = hasUnreadNotif
-      ? `<button class="ub-mark-all" onclick="markAllNotifsRead?.()">تحديد الكل كمقروء</button>`
-      : hasUnreadWallet
-        ? `<button class="ub-mark-all" onclick="wsecMarkAllAlerts?.()">تحديد الكل كمقروء</button>`
-        : '';
+    /* ── Filter tabs (only show if user has multiple sources) ── */
+    const showFilters = roleSources.length > 1;
+    const filterTabs = showFilters ? `
+    <div class="ub-filters">
+      <button class="ub-filter-tab ${_activeFilter === 'all' ? 'ub-filter-active' : ''}" onclick="setUBFilter('all')">
+        <span class="ub-ft-icon">🔔</span>
+        <span class="ub-ft-label">الكل</span>
+        ${totalCount > 0 ? `<span class="ub-ft-badge">${totalCount > 99 ? '99+' : totalCount}</span>` : ''}
+      </button>
+      ${roleSources.map(id => {
+        const s = SOURCES[id];
+        const cnt = s.count || 0;
+        const hasItems = s.items.length > 0;
+        const isActive = _activeFilter === id;
+        return `
+        <button class="ub-filter-tab ${isActive ? 'ub-filter-active' : ''} ${!hasItems ? 'ub-ft-empty' : ''}"
+                onclick="setUBFilter('${id}')"
+                style="${isActive ? `--ft-color:${s.color}` : ''}">
+          <span class="ub-ft-icon">${s.icon}</span>
+          <span class="ub-ft-label">${s.label}</span>
+          ${cnt > 0 ? `<span class="ub-ft-badge" style="background:${s.color}">${cnt > 99 ? '99+' : cnt}</span>` : ''}
+        </button>`;
+      }).join('')}
+    </div>` : '';
+
+    /* ── Content body ── */
+    let body = '';
+    if (sourcesToShow.length === 0) {
+      const activeItems = _activeFilter !== 'all' && SOURCES[_activeFilter]
+        ? SOURCES[_activeFilter].items.length
+        : roleSources.reduce((a, id) => a + SOURCES[id].items.length, 0);
+
+      body = `
+      <div class="ub-empty">
+        <div class="ub-empty-icon">🔕</div>
+        <div class="ub-empty-title">${activeItems > 0 ? 'لا توجد إشعارات جديدة' : 'لا توجد إشعارات'}</div>
+        <div class="ub-empty-sub">ستظهر إشعاراتك هنا فور وصولها</div>
+      </div>`;
+    } else {
+      const showSectionTitle = sourcesToShow.length > 1;
+      body = `<div class="ub-body">
+        ${sourcesToShow.map(id => {
+          const src = SOURCES[id];
+          return `
+          <div class="ub-section">
+            ${showSectionTitle ? `
+            <div class="ub-section-hdr" style="border-right: 3px solid ${src.color}">
+              <span>${src.icon}</span>
+              <span style="color:${src.color}">${src.label}</span>
+              <span class="ub-section-cnt">${src.items.length}</span>
+            </div>` : ''}
+            ${src.items.slice(0, 8).map(item => _renderItem(item, id)).join('')}
+            ${src.items.length > 8 ? `
+            <div class="ub-more" onclick="setUBFilter('${id}')">
+              + ${src.items.length - 8} إشعار آخر — اضغط للعرض
+            </div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    /* ── Mark all button ── */
+    let markAllBtn = '';
+    if (hasUnreadNotif) {
+      markAllBtn = `<button class="ub-mark-all" onclick="markAllNotifsRead?.()">✓ تحديد الكل كمقروء</button>`;
+    } else if (hasUnreadWallet) {
+      markAllBtn = `<button class="ub-mark-all" onclick="wsecMarkAllAlerts?.()">✓ تحديد الكل كمقروء</button>`;
+    }
 
     panel.innerHTML = `
       <div class="ub-header">
-        <span>🔔 الإشعارات</span>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div class="ub-header-left">
+          <div class="ub-header-icon">🔔</div>
+          <div>
+            <div class="ub-header-title">الإشعارات</div>
+            ${totalCount > 0 ? `<div class="ub-header-sub">${totalCount} إشعار غير مقروء</div>` : '<div class="ub-header-sub">لا توجد إشعارات جديدة</div>'}
+          </div>
+        </div>
+        <div class="ub-header-actions">
           ${markAllBtn}
-          <button class="ub-close" onclick="toggleUnifiedNotif()">✕</button>
+          <button class="ub-close-btn" onclick="toggleUnifiedNotif()" title="إغلاق">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
       </div>
-      ${_renderFilterTabs(roleSources)}
+      ${filterTabs}
       ${body}
       <div class="ub-footer">
         <button class="ub-footer-btn" onclick="toggleUnifiedNotif();navigate('notifications')">
-          📋 مركز الإشعارات الكامل
-          <span style="font-size:10px;opacity:.7">تاريخ · بحث · فلترة</span>
+          <span>📋 مركز الإشعارات الكامل</span>
+          <span class="ub-footer-arrow">←</span>
         </button>
       </div>`;
   }
@@ -255,8 +246,11 @@
     const wrap = document.createElement('div');
     wrap.id = 'unified-bell-wrap';
     wrap.innerHTML = `
-      <button id="unified-bell-btn" onclick="toggleUnifiedNotif(event)" title="الإشعارات">
-        🔔
+      <button id="unified-bell-btn" onclick="toggleUnifiedNotif(event)" title="الإشعارات" aria-label="الإشعارات">
+        <svg class="ub-bell-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
         <span id="unified-bell-badge" style="display:none;"></span>
       </button>
       <div id="unified-bell-panel" class="ub-panel"></div>`;
@@ -299,152 +293,283 @@
   const style = document.createElement('style');
   style.id = 'unified-bell-css';
   style.textContent = `
+    /* ════ Bell Wrap & Button ════ */
     #unified-bell-wrap {
-      position: relative; display: inline-flex; align-items: center;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
     }
+
     #unified-bell-btn {
-      width: 38px; height: 38px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 12px;
       background: var(--glass-bg, rgba(255,255,255,0.08));
       border: 1.5px solid var(--border, rgba(255,255,255,0.12));
-      color: var(--text-main, #f1f5f9); font-size: 18px; cursor: pointer;
+      color: var(--text-main, #f1f5f9);
+      cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      position: relative; transition: background 0.2s;
+      position: relative; transition: all 0.2s;
       font-family: sans-serif;
     }
     #unified-bell-btn:hover {
-      background: var(--bg-secondary, rgba(255,255,255,0.15));
+      background: rgba(124,58,237,0.15);
+      border-color: rgba(124,58,237,0.4);
+      color: #a78bfa;
+      transform: scale(1.05);
     }
+    .ub-bell-svg {
+      width: 18px; height: 18px; stroke: currentColor; flex-shrink: 0;
+    }
+
     #unified-bell-badge {
-      position: absolute; top: -4px; right: -4px;
-      background: #ef4444; color: #fff; border-radius: 99px;
-      font-size: 10px; font-weight: 900;
-      min-width: 17px; height: 17px;
+      position: absolute; top: -5px; right: -5px;
+      background: linear-gradient(135deg, #ef4444, #f87171);
+      color: #fff; border-radius: 99px;
+      font-size: 9px; font-weight: 900;
+      min-width: 18px; height: 18px;
+      display: inline-flex;
       align-items: center; justify-content: center;
-      padding: 0 3px; font-family: 'Cairo', sans-serif;
+      padding: 0 4px; font-family: 'Cairo', sans-serif;
       line-height: 1; pointer-events: none;
+      box-shadow: 0 2px 8px rgba(239,68,68,0.5);
+      border: 2px solid var(--bg-main, #0f172a);
+      animation: ubBadgePop 0.3s cubic-bezier(0.34,1.56,0.64,1);
     }
+    @keyframes ubBadgePop {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* ════ Panel ════ */
     .ub-panel {
       display: none; flex-direction: column;
-      position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
-      width: 340px; max-height: 520px; overflow: hidden;
+      position: absolute; top: calc(100% + 12px); inset-inline-end: 0;
+      width: 360px; max-height: 560px; overflow: hidden;
       background: var(--bg-card, #1e293b);
-      border: 1.5px solid var(--border, rgba(255,255,255,0.1));
-      border-radius: 16px;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05);
       z-index: 9999; font-family: 'Cairo', sans-serif; direction: rtl;
+      animation: ubSlideIn 0.25s cubic-bezier(0.22,1,0.36,1);
     }
     .ub-panel.ub-open { display: flex; }
+    @keyframes ubSlideIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ════ Header ════ */
     .ub-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 15px 10px;
-      border-bottom: 1.5px solid var(--border, rgba(255,255,255,0.1));
-      font-weight: 900; font-size: 14px; color: var(--text-main, #f1f5f9);
-      flex-shrink: 0;
+      padding: 16px 16px 12px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(99,102,241,0.06));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0; border-radius: 20px 20px 0 0;
     }
-    .ub-close {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-muted, #9ca3af); font-size: 15px;
-      line-height: 1; padding: 3px 7px; border-radius: 6px;
+    .ub-header-left {
+      display: flex; align-items: center; gap: 10px;
     }
-    .ub-close:hover { background: var(--bg-secondary, rgba(255,255,255,0.08)); }
+    .ub-header-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #7c3aed, #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+    }
+    .ub-header-title {
+      font-weight: 900; font-size: 15px;
+      color: var(--text-main, #f1f5f9);
+      line-height: 1.2;
+    }
+    .ub-header-sub {
+      font-size: 11px; color: var(--text-muted, #94a3b8);
+      margin-top: 1px;
+    }
+    .ub-header-actions {
+      display: flex; align-items: center; gap: 6px;
+    }
+
     .ub-mark-all {
-      background: none; border: none; cursor: pointer;
-      color: var(--accent, #7c3aed); font-size: 11px; font-weight: 700;
-      font-family: 'Cairo', sans-serif; padding: 3px 7px; border-radius: 6px;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 8px;
+      color: #a78bfa; font-size: 11px; font-weight: 700;
+      font-family: 'Cairo', sans-serif;
+      padding: 5px 10px; cursor: pointer;
+      transition: all 0.18s; white-space: nowrap;
     }
-    .ub-mark-all:hover { background: rgba(124,58,237,0.1); }
+    .ub-mark-all:hover { background: rgba(124,58,237,0.25); }
 
-    /* ── Footer ── */
-    .ub-footer {
-      padding: 10px 12px;
-      border-top: 1.5px solid var(--border, rgba(255,255,255,0.08));
-      flex-shrink: 0;
+    .ub-close-btn {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-muted, #9ca3af);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
     }
-    .ub-footer-btn {
-      width: 100%; background: rgba(124,58,237,0.08);
-      border: 1.5px solid rgba(124,58,237,0.25); border-radius: 10px;
-      color: #a78bfa; font-family: 'Cairo', sans-serif;
-      font-size: 13px; font-weight: 800; cursor: pointer;
-      padding: 9px 14px; transition: all 0.18s;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
+    .ub-close-btn:hover {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.3);
+      color: #f87171;
     }
-    .ub-footer-btn:hover { background: rgba(124,58,237,0.18); border-color: rgba(124,58,237,0.5); }
 
-    /* ── Filter Tabs ── */
+    /* ════ Filter Tabs (scrollable row) ════ */
     .ub-filters {
-      display: flex; gap: 4px; padding: 8px 10px;
-      border-bottom: 1.5px solid var(--border, rgba(255,255,255,0.08));
-      flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+      display: flex; gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(124,58,237,0.3) transparent;
     }
-    .ub-filters::-webkit-scrollbar { display: none; }
+    .ub-filters::-webkit-scrollbar { height: 3px; }
+    .ub-filters::-webkit-scrollbar-track { background: transparent; }
+    .ub-filters::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.3); border-radius: 99px; }
+
     .ub-filter-tab {
-      display: flex; align-items: center; gap: 4px;
-      padding: 5px 10px; border-radius: 20px; border: 1.5px solid transparent;
-      background: var(--bg-hover, rgba(255,255,255,0.05));
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 12px; border-radius: 20px;
+      border: 1.5px solid transparent;
+      background: rgba(255,255,255,0.05);
       color: var(--text-secondary, #94a3b8);
       font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
-      cursor: pointer; white-space: nowrap; transition: all 0.18s;
-      flex-shrink: 0;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.18s; flex-shrink: 0;
     }
     .ub-filter-tab:hover {
-      background: var(--bg-secondary, rgba(255,255,255,0.1));
+      background: rgba(255,255,255,0.1);
       color: var(--text-main, #f1f5f9);
     }
+    .ub-filter-tab.ub-ft-empty { opacity: 0.45; }
     .ub-filter-active {
-      background: rgba(124,58,237,0.15) !important;
-      border-color: rgba(124,58,237,0.5) !important;
-      color: #a78bfa !important;
+      background: rgba(124,58,237,0.18) !important;
+      border-color: rgba(124,58,237,0.45) !important;
+      color: #c4b5fd !important;
     }
-    .ub-tab-icon { font-size: 13px; }
-    .ub-tab-label { font-size: 12px; }
-    .ub-tab-count {
+    .ub-ft-icon  { font-size: 14px; }
+    .ub-ft-label { font-size: 12px; }
+    .ub-ft-badge {
       background: #ef4444; color: #fff; border-radius: 99px;
-      font-size: 10px; font-weight: 900; min-width: 16px; height: 16px;
+      font-size: 9px; font-weight: 900; min-width: 16px; height: 16px;
       display: inline-flex; align-items: center; justify-content: center;
-      padding: 0 3px; line-height: 1;
+      padding: 0 4px; line-height: 1;
     }
 
-    /* ── Body & Items ── */
-    .ub-body { overflow-y: auto; flex: 1; }
-    .ub-empty {
-      padding: 36px 16px; text-align: center;
-      color: var(--text-muted, #9ca3af); font-size: 13px;
-    }
-    .ub-section { border-bottom: 1.5px solid var(--border, rgba(255,255,255,0.08)); }
+    /* ════ Body & Items ════ */
+    .ub-body { overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+    .ub-body::-webkit-scrollbar { width: 4px; }
+    .ub-body::-webkit-scrollbar-track { background: transparent; }
+    .ub-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+
+    .ub-section { border-bottom: 1px solid rgba(255,255,255,0.06); }
     .ub-section:last-child { border-bottom: none; }
-    .ub-section-title {
-      padding: 10px 14px 5px;
+
+    .ub-section-hdr {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 14px 5px; margin: 0;
       font-size: 11px; font-weight: 900; letter-spacing: 0.3px;
+      color: var(--text-muted, #64748b);
+      padding-right: 10px;
     }
+    .ub-section-cnt {
+      margin-right: auto;
+      background: rgba(255,255,255,0.08); color: var(--text-muted);
+      border-radius: 99px; font-size: 10px; font-weight: 700;
+      padding: 1px 7px;
+    }
+
     .ub-item {
       display: flex; align-items: flex-start; gap: 10px;
-      padding: 9px 14px; cursor: pointer;
-      border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.05));
-      transition: background 0.15s;
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s; position: relative;
     }
     .ub-item:last-child { border-bottom: none; }
-    .ub-item:hover { background: var(--bg-secondary, rgba(255,255,255,0.06)); }
-    .ub-item.ub-unread { background: rgba(14,165,233,0.06); }
-    .ub-item-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .ub-item:hover { background: rgba(255,255,255,0.04); }
+    .ub-item.ub-unread { background: rgba(14,165,233,0.05); }
+    .ub-item.ub-unread:hover { background: rgba(14,165,233,0.09); }
+
+    .ub-item-icon-wrap {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 18px;
+    }
+    .ub-item-icon { line-height: 1; }
+
     .ub-item-body { flex: 1; min-width: 0; }
     .ub-item-title {
       font-size: 13px; font-weight: 700;
       color: var(--text-main, #f1f5f9); line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .ub-item-sub {
-      font-size: 11px; color: var(--text-secondary, #94a3b8);
-      margin-top: 2px; line-height: 1.4;
+      font-size: 11.5px; color: var(--text-secondary, #94a3b8);
+      margin-top: 2px; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .ub-item-meta {
+      display: flex; align-items: center; gap: 8px; margin-top: 4px;
     }
     .ub-item-time {
-      font-size: 10px; color: var(--text-muted, #64748b); margin-top: 3px;
+      font-size: 10px; color: var(--text-muted, #64748b);
     }
-    .ub-more {
-      padding: 8px 14px; font-size: 11px; font-weight: 700;
-      color: var(--text-muted, #64748b); text-align: center;
-      background: var(--bg-hover, rgba(255,255,255,0.03));
+    .ub-item-nav-hint {
+      font-size: 10px; color: #7c3aed; font-weight: 700; opacity: 0.7;
     }
 
-    /* ── إخفاء أي زر إشعارات عائم قديم بشكل نهائي ── */
+    .ub-unread-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 5px; align-self: flex-start;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    .ub-more {
+      padding: 10px 14px; font-size: 12px; font-weight: 700;
+      color: #a78bfa; text-align: center; cursor: pointer;
+      background: rgba(124,58,237,0.05);
+      transition: background 0.15s;
+    }
+    .ub-more:hover { background: rgba(124,58,237,0.12); }
+
+    /* ════ Empty State ════ */
+    .ub-empty {
+      padding: 40px 20px; text-align: center;
+      color: var(--text-muted, #9ca3af);
+    }
+    .ub-empty-icon { font-size: 44px; margin-bottom: 12px; opacity: 0.4; }
+    .ub-empty-title { font-size: 14px; font-weight: 800; color: var(--text-secondary, #94a3b8); margin-bottom: 4px; }
+    .ub-empty-sub { font-size: 12px; opacity: 0.7; }
+
+    /* ════ Footer ════ */
+    .ub-footer {
+      padding: 10px 12px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
+      border-radius: 0 0 20px 20px;
+      background: rgba(255,255,255,0.02);
+    }
+    .ub-footer-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(99,102,241,0.08));
+      border: 1.5px solid rgba(124,58,237,0.25);
+      border-radius: 12px;
+      color: #c4b5fd; font-family: 'Cairo', sans-serif;
+      font-size: 13px; font-weight: 800; cursor: pointer;
+      padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: all 0.2s;
+    }
+    .ub-footer-btn:hover {
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(99,102,241,0.15));
+      border-color: rgba(124,58,237,0.5);
+      transform: translateY(-1px);
+    }
+    .ub-footer-arrow {
+      font-size: 16px; font-weight: 900; opacity: 0.7;
+    }
+
+    /* ════ إخفاء العناصر القديمة ════ */
     #da-bell,
     #notif-bell-wrap:not([data-in-nav]),
     .ph19-pill:not(.in-nav),
@@ -474,5 +599,5 @@
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
   })();
 
-  console.log('[UnifiedBell] جرس الإشعارات الموحد جاهز 🔔');
+  console.log('[UnifiedBell] جرس الإشعارات الموحد v2.0 جاهز 🔔');
 })();

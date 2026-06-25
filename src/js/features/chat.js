@@ -74,16 +74,29 @@ class ChatManager {
         lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
       });
 
-      // إرسال إشعار للموظف إذا كانت الرسالة من عميل
+      // إشعار الموظفين عند رسالة عميل
       if (senderRole === 'customer') {
         const customer = await fsGet('users', senderId);
         const staffUsers = await fsQuery('users', 'role', '==', 'staff');
         for (const staff of staffUsers) {
-          await saveNotificationToFirestore(staff.id, {
+          await saveNotificationToFirestore(staff.id || staff.uid, {
             title: '💬 رسالة جديدة من عميل',
-            body: `العميل ${customer?.displayName || 'مجهول'}: ${text.substring(0, 50)}...`,
-            type: 'new-chat-message',
-            data: { ticketId, senderId, messageId },
+            body: `العميل ${customer?.name || customer?.displayName || 'مجهول'}: ${text.substring(0, 50)}...`,
+            type: 'chat-message',
+            data: { ticketId, chatId: ticketId, senderId, messageId },
+          });
+        }
+      }
+
+      // إشعار العميل عند رد الموظف أو المدير
+      if (senderRole === 'staff' || senderRole === 'admin') {
+        const ticket = await fsGet('support_tickets', ticketId);
+        if (ticket?.userId && typeof saveNotificationToFirestore === 'function') {
+          await saveNotificationToFirestore(ticket.userId, {
+            title: '💬 رد من الدعم الفني',
+            body: text.substring(0, 80),
+            type: 'chat-message',
+            data: { ticketId, chatId: ticketId, messageId },
           });
         }
       }
@@ -328,6 +341,19 @@ class ChatManager {
 
 // ─── Global Instance ───────────────────────────────────────────────
 const chatManager = new ChatManager();
+let __activeMsgContainer = 'messages-container';
+
+function getChatSenderRole() {
+  const role = State.currentUser?.role;
+  if (role === 'staff') return 'staff';
+  if (role === 'admin') return 'admin';
+  return 'customer';
+}
+
+function getCustomerName(userId) {
+  const u = (AppData.users || []).find(x => x.uid === userId || x.id === userId);
+  return u?.name || userId?.substring(0, 8) || '—';
+}
 
 // ─── UI Functions ─────────────────────────────────────────────────
 
@@ -433,6 +459,12 @@ function renderSupportDashboard() {
 
 // ─── معالج التبويب ────────────────────────────────────────────────
 async function switchSupportTab(tab) {
+  if (tab === 'analytics') {
+    await renderSupportAnalytics();
+    updateTabButtons(tab);
+    return;
+  }
+
   const userId = State.currentUser?.uid;
   let tickets = [];
 
@@ -450,6 +482,29 @@ async function switchSupportTab(tab) {
 
   renderTicketsTable(tickets, tab);
   updateTabButtons(tab);
+}
+
+async function renderSupportAnalytics() {
+  const el = document.getElementById('support-content');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">⏳ جاري تحميل الإحصائيات...</div>';
+  try {
+    const stats = await chatManager.getSupportStats();
+    el.innerHTML = `
+      <div class="ph18-route-stats" style="margin-bottom:24px">
+        <div class="ph18-route-stat"><b>${stats.total ?? 0}</b><span>إجمالي التذاكر</span></div>
+        <div class="ph18-route-stat"><b>${stats.open ?? 0}</b><span>مفتوحة</span></div>
+        <div class="ph18-route-stat"><b>${stats.inProgress ?? 0}</b><span>قيد المعالجة</span></div>
+        <div class="ph18-route-stat"><b>${stats.resolved ?? 0}</b><span>محلولة</span></div>
+        <div class="ph18-route-stat"><b>${stats.closed ?? 0}</b><span>مغلقة</span></div>
+        <div class="ph18-route-stat"><b>${stats.highPriority ?? 0}</b><span>أولوية عالية</span></div>
+        <div class="ph18-route-stat"><b>${stats.avgRating ?? '—'}</b><span>متوسط التقييم</span></div>
+        <div class="ph18-route-stat"><b>${stats.avgResolutionTime ?? '—'}</b><span>دقائق للحل</span></div>
+      </div>
+      <p style="color:var(--text-muted);font-size:14px;text-align:center">تُحدَّث الإحصائيات من جميع تذاكر الدعم في قاعدة البيانات</p>`;
+  } catch (error) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">تعذّر تحميل الإحصائيات</div></div>';
+  }
 }
 
 // ─── عرض جدول التذاكر ─────────────────────────────────────────────
@@ -484,11 +539,11 @@ function renderTicketsTable(tickets, activeTab) {
                 ${getStatusLabel(ticket.status)}
               </span>
             </td>
-            <td>${ticket.userId}</td>
+            <td>${typeof escHtml === 'function' ? escHtml(getCustomerName(ticket.userId)) : getCustomerName(ticket.userId)}</td>
             <td>${formatDate(ticket.createdAt)}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" 
-                onclick="openTicket('${ticket.id}')">فتح</button>
+            <td style="white-space:nowrap">
+              <button class="btn btn-sm btn-primary" onclick="openStaffTicket('${ticket.id}')">💬 فتح</button>
+              ${ticket.status === 'open' ? `<button class="btn btn-sm btn-secondary" onclick="assignTicketToMe('${ticket.id}')">📌 إسناد</button>` : ''}
             </td>
           </tr>`).join('')
           : '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">لا توجد تذاكر</td></tr>'
@@ -529,23 +584,34 @@ function formatDate(timestamp) {
 }
 
 function updateTabButtons(activeTab) {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
+  document.querySelectorAll('.support-tabs .tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick')?.includes(`'${activeTab}'`) ?? false);
   });
-  event.target.classList.add('active');
 }
 
 // ─── إرسال رسالة ──────────────────────────────────────────────────
 async function sendChatMessage() {
-  const input = document.getElementById('message-input');
+  const input = document.getElementById('staff-message-input') || document.getElementById('message-input');
   if (!input || !input.value.trim()) return;
 
   const text = input.value.trim();
   const ticketId = chatManager.activeChat;
   const userId = State.currentUser?.uid;
+  if (!ticketId || !userId) return;
+
+  const senderRole = getChatSenderRole();
 
   try {
-    await chatManager.sendMessage(ticketId, userId, text, 'customer', null, 'text');
+    await chatManager.sendMessage(ticketId, userId, text, senderRole, null, 'text');
+
+    // إسناد تلقائي عند أول رد من الموظف/المدير
+    if (senderRole === 'staff' || senderRole === 'admin') {
+      const ticket = await fsGet('support_tickets', ticketId);
+      if (ticket && !ticket.assignedTo) {
+        await chatManager.assignTicketToStaff(ticketId, userId);
+      }
+    }
+
     input.value = '';
     input.focus();
   } catch (error) {
@@ -556,47 +622,159 @@ async function sendChatMessage() {
 // ─── فتح تذكرة ────────────────────────────────────────────────────
 async function openTicket(ticketId) {
   chatManager.activeChat = ticketId;
+  __activeMsgContainer = 'messages-container';
   const ticket = await fsGet('support_tickets', ticketId);
-  
   if (!ticket) return;
 
-  // تحميل الرسائل
+  chatManager.cleanup();
   const messages = await chatManager.loadChatMessages(ticketId);
-  
-  // عرض الرسائل
-  renderChatMessages(messages);
-  
-  // تحديث رأس الرسالة
-  document.getElementById('chat-subject').textContent = ticket.subject;
-  document.getElementById('chat-status').textContent = getStatusLabel(ticket.status);
-  document.getElementById('chat-status').className = `status-badge status-${ticket.status}`;
-  
-  // إظهار منطقة الدردشة
-  document.getElementById('chat-area').style.display = 'block';
-  document.getElementById('no-chat-selected').style.display = 'none';
-  
-  // الاستماع للرسائل الجديدة
-  chatManager.listenToChat(ticketId, renderChatMessages);
-  
-  // تعليم الرسائل كمقروءة
+  renderChatMessages(messages, __activeMsgContainer);
+
+  const subjectEl = document.getElementById('chat-subject');
+  const statusEl = document.getElementById('chat-status');
+  if (subjectEl) subjectEl.textContent = ticket.subject;
+  if (statusEl) {
+    statusEl.textContent = getStatusLabel(ticket.status);
+    statusEl.className = `status-badge status-${ticket.status}`;
+  }
+
+  const chatArea = document.getElementById('chat-area');
+  const noChat = document.getElementById('no-chat-selected');
+  if (chatArea) chatArea.style.display = 'block';
+  if (noChat) noChat.style.display = 'none';
+
+  chatManager.listenToChat(ticketId, msgs => renderChatMessages(msgs, __activeMsgContainer));
   await chatManager.markMessagesAsRead(ticketId, State.currentUser?.uid);
 }
 
+async function openStaffTicket(ticketId) {
+  chatManager.activeChat = ticketId;
+  __activeMsgContainer = 'staff-messages-container';
+  const ticket = await fsGet('support_tickets', ticketId);
+  if (!ticket) { toast('التذكرة غير موجودة', 'error'); return; }
+
+  const customerName = getCustomerName(ticket.userId);
+  const assignedName = ticket.assignedTo ? getCustomerName(ticket.assignedTo) : 'غير مسندة';
+  const canReply = ticket.status !== 'closed';
+
+  openModal(`
+    <div class="modal-header">
+      <h2 class="modal-title">💬 ${typeof escHtml === 'function' ? escHtml(ticket.subject) : ticket.subject}</h2>
+      <button class="modal-close" onclick="closeStaffTicketModal()">✕</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:13px">
+      <span class="status-badge status-${ticket.status}">${getStatusLabel(ticket.status)}</span>
+      <span class="priority-badge priority-${ticket.priority}">${getPriorityLabel(ticket.priority)}</span>
+      <span style="color:var(--text-muted)">👤 ${typeof escHtml === 'function' ? escHtml(customerName) : customerName}</span>
+      <span style="color:var(--text-muted)">📌 ${typeof escHtml === 'function' ? escHtml(assignedName) : assignedName}</span>
+    </div>
+    <div id="staff-messages-container" class="messages-container" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--bg-secondary)"></div>
+    ${canReply ? `
+    <div class="message-input-area" style="display:flex;gap:8px;margin-bottom:16px">
+      <input type="text" id="staff-message-input" class="form-control" placeholder="اكتب ردك للعميل..." style="flex:1"
+        onkeypress="if(event.key==='Enter') sendChatMessage()">
+      <button class="btn btn-primary" onclick="sendChatMessage()">إرسال</button>
+    </div>` : '<p style="color:var(--text-muted);margin-bottom:16px">هذه التذكرة مغلقة — لا يمكن الرد.</p>'}
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${ticket.status === 'open' ? `<button class="btn btn-secondary btn-sm" onclick="assignTicketToMe('${ticketId}')">📌 إسناد لي</button>` : ''}
+      ${ticket.status !== 'resolved' && ticket.status !== 'closed' ? `<button class="btn btn-success btn-sm" onclick="resolveTicket('${ticketId}')">✅ محلولة</button>` : ''}
+      ${ticket.status !== 'closed' ? `<button class="btn btn-danger btn-sm" onclick="closeStaffTicket('${ticketId}')">⬜ إغلاق نهائي</button>` : ''}
+    </div>
+  `);
+
+  chatManager.cleanup();
+  const messages = await chatManager.loadChatMessages(ticketId);
+  renderChatMessages(messages, __activeMsgContainer);
+  chatManager.listenToChat(ticketId, msgs => renderChatMessages(msgs, __activeMsgContainer));
+  await chatManager.markMessagesAsRead(ticketId, State.currentUser?.uid);
+
+  const staffInput = document.getElementById('staff-message-input');
+  if (staffInput) staffInput.focus();
+}
+
+function closeStaffTicketModal() {
+  chatManager.cleanup();
+  chatManager.activeChat = null;
+  closeModal();
+}
+
+async function assignTicketToMe(ticketId) {
+  const uid = State.currentUser?.uid;
+  if (!uid) return;
+  try {
+    await chatManager.assignTicketToStaff(ticketId, uid);
+    toast('✅ تم إسناد التذكرة إليك', 'success');
+    if (chatManager.activeChat === ticketId && document.getElementById('staff-messages-container')) {
+      await openStaffTicket(ticketId);
+    } else {
+      await refreshSupportTab();
+    }
+  } catch (error) {
+    toast('فشل الإسناد', 'error');
+  }
+}
+
+async function resolveTicket(ticketId) {
+  try {
+    await fsUpdate('support_tickets', ticketId, {
+      status: 'resolved',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('✅ تم تحديد التذكرة كمحلولة', 'success');
+    if (document.getElementById('staff-messages-container')) {
+      await openStaffTicket(ticketId);
+    }
+    await refreshSupportTab();
+  } catch (error) {
+    toast('فشل التحديث', 'error');
+  }
+}
+
+async function closeStaffTicket(ticketId) {
+  const resolution = prompt('ملاحظات الإغلاق (اختياري):');
+  if (resolution === null) return;
+  try {
+    await chatManager.closeTicket(ticketId, resolution || 'تم الإغلاق');
+    toast('✅ تم إغلاق التذكرة', 'success');
+    closeStaffTicketModal();
+    await refreshSupportTab();
+  } catch (error) {
+    toast('فشل الإغلاق', 'error');
+  }
+}
+
+async function refreshSupportTab() {
+  const activeBtn = document.querySelector('.support-tabs .tab-btn.active');
+  const tab = activeBtn?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'queue';
+  if (typeof switchSupportTab === 'function') await switchSupportTab(tab);
+  if (typeof initSupportDashboard === 'function') {
+    const stats = await chatManager.getSupportStats();
+    const cards = document.querySelectorAll('#support-stats .stat-value');
+    if (cards[0]) cards[0].textContent = stats.open ?? 0;
+    if (cards[1]) cards[1].textContent = stats.inProgress ?? 0;
+    if (cards[2]) cards[2].textContent = stats.avgRating ?? '-';
+    if (cards[3]) cards[3].textContent = stats.avgResolutionTime ?? '-';
+  }
+}
+
 // ─── عرض الرسائل ──────────────────────────────────────────────────
-function renderChatMessages(messages) {
-  const container = document.getElementById('messages-container');
+function renderChatMessages(messages, containerId) {
+  const container = document.getElementById(containerId || __activeMsgContainer);
   if (!container) return;
 
   const currentUserId = State.currentUser?.uid;
-  
+  const viewerRole = getChatSenderRole();
+
   container.innerHTML = messages.map(msg => {
-    const isCurrentUser = msg.senderId === currentUserId;
-    const senderName = msg.senderRole === 'staff' ? '👨‍💼 الموظف' : 
+    const isOwnMessage = msg.senderId === currentUserId;
+    const senderName = msg.senderRole === 'staff' ? '👨‍💼 الموظف' :
                       msg.senderRole === 'admin' ? '👨‍💼 الإدارة' :
-                      msg.senderRole === 'system' ? '🤖 النظام' : '👤 أنت';
+                      msg.senderRole === 'system' ? '🤖 النظام' :
+                      viewerRole === 'customer' ? '👤 أنت' :
+                      `👤 ${getCustomerName(msg.senderId)}`;
     
     return `
-    <div class="message-item ${isCurrentUser ? 'sent' : 'received'}">
+    <div class="message-item ${isOwnMessage ? 'sent' : 'received'}">
       <div class="message-bubble">
         <div class="message-sender">${senderName}</div>
         <div class="message-text">${escapeHtml(msg.text)}</div>
@@ -624,16 +802,31 @@ function escapeHtml(text) {
 // ─── إغلاق التذكرة ────────────────────────────────────────────────
 async function closeCurrentTicket() {
   if (!chatManager.activeChat) return;
-  
+
   const resolution = prompt('أدخل حل المشكلة أو ملاحظاتك:');
   if (!resolution) return;
 
   try {
-    await chatManager.closeTicket(chatManager.activeChat, resolution);
+    const ticketId = chatManager.activeChat;
+    await chatManager.closeTicket(ticketId, resolution);
+    chatManager.cleanup();
+
+    // تقييم اختياري من العميل
+    if (getChatSenderRole() === 'customer') {
+      const rating = prompt('قيّم خدمة الدعم من 1 إلى 5 (اختياري — اتركه فارغاً للتخطي):');
+      if (rating && /^[1-5]$/.test(rating.trim())) {
+        const feedback = prompt('ملاحظاتك (اختياري):') || '';
+        await chatManager.rateChat(ticketId, parseInt(rating, 10), feedback);
+      }
+    }
+
     toast('✅ تم إغلاق التذكرة بنجاح', 'success');
-    document.getElementById('chat-area').style.display = 'none';
-    document.getElementById('no-chat-selected').style.display = 'block';
+    const chatArea = document.getElementById('chat-area');
+    const noChat = document.getElementById('no-chat-selected');
+    if (chatArea) chatArea.style.display = 'none';
+    if (noChat) noChat.style.display = 'block';
     chatManager.activeChat = null;
+    await loadCustomerTickets();
   } catch (error) {
     toast('❌ حدث خطأ في إغلاق التذكرة', 'error');
   }
@@ -674,7 +867,7 @@ function showNewTicketForm() {
   </div>
   `;
 
-  showModal(html);
+  openModal(html);
 
   document.getElementById('new-ticket-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -693,9 +886,100 @@ function showNewTicketForm() {
       
       closeModal();
       toast('✅ تم إنشاء التذكرة بنجاح', 'success');
+      await loadCustomerTickets();
       await openTicket(ticketId);
     } catch (error) {
       toast('❌ خطأ في إنشاء التذكرة', 'error');
     }
   });
 }
+
+// ─── تهيئة صفحة العميل + تصدير الدوال ─────────────────────────────
+let __customerTickets = [];
+
+async function loadCustomerTickets() {
+  const userId = State.currentUser?.uid;
+  const listEl = document.getElementById('tickets-list');
+  if (!userId || !listEl) return;
+  try {
+    const snapshot = await db.collection('support_tickets')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+    __customerTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('Error loading customer tickets:', error);
+    __customerTickets = [];
+  }
+  renderCustomerTicketsList(__customerTickets);
+}
+
+function renderCustomerTicketsList(tickets) {
+  const el = document.getElementById('tickets-list');
+  if (!el) return;
+  if (!tickets.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">لا توجد تذاكر بعد — أنشئ طلب دعم جديد</div>';
+    return;
+  }
+  el.innerHTML = tickets.map(t => `
+    <div class="ticket-item" onclick="openTicket('${t.id}')" style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="font-weight:700">${typeof escHtml === 'function' ? escHtml(t.subject) : t.subject}</div>
+      <div style="font-size:12px;color:var(--text-muted)">${getStatusLabel(t.status)} · ${formatDate(t.createdAt)}</div>
+    </div>
+  `).join('');
+}
+
+async function initCustomerChatPage() {
+  await loadCustomerTickets();
+  const chatId = new URLSearchParams(window.location.search).get('chatId');
+  if (chatId) await openTicket(chatId);
+}
+
+async function initSupportDashboard() {
+  await switchSupportTab('queue');
+  try {
+    const stats = await chatManager.getSupportStats();
+    const cards = document.querySelectorAll('#support-stats .stat-value');
+    if (cards[0]) cards[0].textContent = stats.open ?? 0;
+    if (cards[1]) cards[1].textContent = stats.inProgress ?? 0;
+    if (cards[2]) cards[2].textContent = stats.avgRating ?? '-';
+    if (cards[3]) cards[3].textContent = stats.avgResolutionTime ?? '-';
+  } catch (error) {
+    console.error('Error loading support stats:', error);
+  }
+}
+
+window.filterTickets = function (query) {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) {
+    renderCustomerTicketsList(__customerTickets);
+    return;
+  }
+  renderCustomerTicketsList(__customerTickets.filter(t =>
+    (t.subject || '').toLowerCase().includes(q) ||
+    (t.description || '').toLowerCase().includes(q)
+  ));
+};
+
+window.renderCustomerChatPage = renderCustomerChatPage;
+window.renderSupportDashboard = renderSupportDashboard;
+window.switchSupportTab = switchSupportTab;
+window.openTicket = openTicket;
+window.openStaffTicket = openStaffTicket;
+window.assignTicketToMe = assignTicketToMe;
+window.resolveTicket = resolveTicket;
+window.closeStaffTicket = closeStaffTicket;
+window.closeStaffTicketModal = closeStaffTicketModal;
+window.sendChatMessage = sendChatMessage;
+window.showNewTicketForm = showNewTicketForm;
+window.closeCurrentTicket = closeCurrentTicket;
+window.initSupportDashboard = initSupportDashboard;
+window.refreshSupportTab = refreshSupportTab;
+
+window.ExtraPages = window.ExtraPages || {};
+window.ExtraPages['support-chat'] = function () {
+  const html = renderCustomerChatPage();
+  setTimeout(() => initCustomerChatPage(), 0);
+  return html;
+};

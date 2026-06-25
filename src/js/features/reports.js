@@ -24,29 +24,59 @@ class ReportsManager {
   async getSalesReport(startDate, endDate) {
     try {
       // 1. التصفية المباشرة من الذاكرة لسرعة الاستجابة وتفادي أخطاء الفهرسة
-      let ordersList = [];
-      const startMs = startDate ? new Date(startDate).getTime() : 0;
-      const endMs = endDate ? new Date(endDate).getTime() : Date.now();
-      
+      // 1. تصفية من الذاكرة للطلبات النشطة
+      let activeList = [];
       if (AppData.orders && AppData.orders.length > 0) {
-        ordersList = AppData.orders.filter(o => {
+        activeList = AppData.orders.filter(o => {
           const d = o.createdAt ? (o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt)) : null;
           if (!d) return false;
           const ms = d.getTime();
           return ms >= startMs && ms <= endMs;
         });
       }
+
+      // 2. تصفية من الذاكرة للطلبات مؤرشفة (المكتملة والملغية)
+      let archivedList = [];
+      if (State._archivedOrdersLoaded && AppData.archivedOrders && AppData.archivedOrders.length > 0) {
+        archivedList = AppData.archivedOrders.filter(o => {
+          const d = o.createdAt ? (o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt)) : null;
+          if (!d) return false;
+          const ms = d.getTime();
+          return ms >= startMs && ms <= endMs;
+        });
+      } else {
+        // إذا لم تكن محملة، نجلبها من Firestore للنطاق الزمني
+        try {
+          const snap = await db.collection('archivedOrders')
+            .where('createdAt', '>=', startDate)
+            .where('createdAt', '<=', endDate)
+            .get();
+          archivedList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch(e) {
+          console.warn("Firestore archivedOrders query failed", e);
+        }
+      }
+
+      ordersList = [...activeList, ...archivedList];
       
-      // 2. تصفية بديلة من السيرفر كاحتياطي في حال خلو الذاكرة
+      // 3. تصفية بديلة من السيرفر كاحتياطي في حال خلو الذاكرة بالكامل
       if (ordersList.length === 0) {
         try {
           const snap = await db.collection('orders')
             .where('createdAt', '>=', startDate)
             .where('createdAt', '<=', endDate)
             .get();
-          ordersList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const activeDb = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+          const snapArch = await db.collection('archivedOrders')
+            .where('createdAt', '>=', startDate)
+            .where('createdAt', '<=', endDate)
+            .get();
+          const archDb = snapArch.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+          ordersList = [...activeDb, ...archDb];
         } catch(e) {
-          console.warn("Firestore query failed, using memory fallback", e);
+          console.warn("Firestore query fallback failed", e);
           ordersList = [];
         }
       }
@@ -170,7 +200,9 @@ class ReportsManager {
       const performance = [];
 
       for (const cat of categories) {
-        const orders = await fsQuery('orders', 'category', '==', cat.id);
+        const activeOrders = await fsQuery('orders', 'category', '==', cat.id);
+        const archivedOrders = await fsQuery('archivedOrders', 'category', '==', cat.id);
+        const orders = [...activeOrders, ...archivedOrders];
         const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || o.total || 0), 0);
         const avgRating = orders.length > 0 
           ? (orders.reduce((sum, o) => sum + (o.rating || 0), 0) / orders.length).toFixed(1)
@@ -202,7 +234,9 @@ class ReportsManager {
       const vendorData = [];
 
       for (const vendor of allVendors) {
-        const orders = await fsQuery('orders', 'providerUid', '==', vendor.id || vendor.uid);
+        const activeOrders = await fsQuery('orders', 'providerUid', '==', vendor.id || vendor.uid);
+        const archivedOrders = await fsQuery('archivedOrders', 'providerUid', '==', vendor.id || vendor.uid);
+        const orders = [...activeOrders, ...archivedOrders];
         const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
         const completedOrders = orders.filter(o => o.status === 'completed').length;
         const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
@@ -265,7 +299,9 @@ class ReportsManager {
       };
 
       for (const customer of customers) {
-        const orders = await fsQuery('orders', 'customerId', '==', customer.id || customer.uid);
+        const activeOrders = await fsQuery('orders', 'customerId', '==', customer.id || customer.uid);
+        const archivedOrders = await fsQuery('archivedOrders', 'customerId', '==', customer.id || customer.uid);
+        const orders = [...activeOrders, ...archivedOrders];
         const totalSpent = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
         const lastOrderDate = orders.length > 0 
           ? Math.max(...orders.map(o => {

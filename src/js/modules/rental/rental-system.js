@@ -136,24 +136,25 @@ window.ph_renderAdminRentalStoreDetail = function (storeId) {
     </div>
   </div>
 
-  <div style="display:flex;gap:20px;align-items:flex-start">
-    <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:4px">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;padding:0 4px">الأقسام</div>
-      <button class="au-sidebar-btn${!activeCat ? ' active' : ''}" onclick="State.adminRentalCat=null;ph_openRentalAdmin('${store.catId}', '${storeId}')">
-        <span>🛍️</span><span style="flex:1;text-align:right">الكل</span>
-        <span class="au-sidebar-count">${(AppData.rentalProducts || []).filter(p => p.storeId === storeId).length}</span>
-      </button>
-      ${subCats.map(c => {
-        const cnt = (AppData.rentalProducts || []).filter(p => p.storeId === storeId && p.catId === c.id).length;
-        return `<button class="au-sidebar-btn${activeCat === c.id ? ' active' : ''}" onclick="State.adminRentalCat='${c.id}';ph_openRentalAdmin('${store.catId}', '${storeId}')">
-          <span>${c.icon || '📦'}</span>
-          <span style="flex:1;text-align:right">${escHtml(c.name)}</span>
-          <span class="au-sidebar-count">${cnt}</span>
-        </button>`;
-      }).join('')}
-    </div>
+  <!-- شريط الأقسام الأفقي المتطور -->
+  <div class="ph43-cats-tabs-wrap">
+    <div class="ph43-cats-title">📂 الأقسام:</div>
+    <button class="ph43-cat-tab${!activeCat ? ' active' : ''}" onclick="State.adminRentalCat=null;ph_openRentalAdmin('${store.catId}', '${storeId}')">
+      <span class="ph43-cat-tab-icon">🛍️</span>
+      <span>الكل</span>
+      <span class="ph43-cat-tab-count">${(AppData.rentalProducts || []).filter(p => p.storeId === storeId).length}</span>
+    </button>
+    ${subCats.map(c => {
+      const cnt = (AppData.rentalProducts || []).filter(p => p.storeId === storeId && p.catId === c.id).length;
+      return `<button class="ph43-cat-tab${activeCat === c.id ? ' active' : ''}" onclick="State.adminRentalCat='${c.id}';ph_openRentalAdmin('${store.catId}', '${storeId}')">
+        <span class="ph43-cat-tab-icon">${c.icon || '📦'}</span>
+        <span>${escHtml(c.name)}</span>
+        <span class="ph43-cat-tab-count">${cnt}</span>
+      </button>`;
+    }).join('')}
+  </div>
 
-    <div style="flex:1;min-width:0">
+  <div style="width:100%" data-ph43-products-container="true">
       ${products.length ? `
       <div class="table-wrap">
         <table class="admin-table">
@@ -189,7 +190,6 @@ window.ph_renderAdminRentalStoreDetail = function (storeId) {
         <div class="empty-title">لا توجد منتجات${activeCat ? ' في هذا القسم' : ''}</div>
         <button class="btn btn-primary" style="margin-top:16px" onclick="ph_showAddRentalProductModal('${storeId}')">➕ إضافة منتج</button>
       </div>`}
-    </div>
   </div>`;
 };
 

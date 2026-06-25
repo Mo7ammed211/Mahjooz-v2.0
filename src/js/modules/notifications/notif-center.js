@@ -83,8 +83,8 @@
         (snap.docs || []).forEach(d => {
           const data = d.data() || {};
           all.push({
-            id: d.id, source: 'notif',
-            icon:  TYPE_MAP[data.type]?.icon  || '🔔',
+            id: d.id, source: data.source || 'notif',
+            icon:  data.icon || TYPE_MAP[data.type]?.icon  || '🔔',
             color: TYPE_MAP[data.type]?.color || '#6b7280',
             title: data.title || '',
             body:  data.body  || '',
@@ -93,6 +93,10 @@
             read: !!data.read,
             link: data.link || null,
             type: data.type || 'info',
+            // حقول الإجراء الجديدة (Task #54)
+            actionType:  data.actionType  || null,
+            actionLabel: data.actionLabel || null,
+            actionUrl:   data.actionUrl   || null,
             sortMs: data.createdAt?.toMillis?.() || 0,
           });
         });
@@ -155,12 +159,14 @@
   }
 
   /* ── Item HTML ─────────────────────────────────────────────── */
-  const SOURCE_LABEL = { notif:'📨 شخصي', live:'🛎️ تنبيه مباشر', driver:'🚚 توصيل' };
+  const SOURCE_LABEL = { notif:'📨 شخصي', live:'🛎️ تنبيه مباشر', driver:'🚚 توصيل', broadcast:'📣 جماعي' };
 
   function _itemHtml(item) {
     const sel = NC.selectedIds.has(item.id);
+    const isBroadcast = item.source === 'broadcast';
+    const hasAction   = item.actionLabel && item.actionUrl && item.actionLabel !== 'null' && item.actionUrl !== 'null';
     return `
-    <div class="nc-item${item.read ? '' : ' nc-unread'}${sel ? ' nc-sel' : ''}"
+    <div class="nc-item${item.read ? '' : ' nc-unread'}${sel ? ' nc-sel' : ''}${isBroadcast ? ' nc-source-broadcast' : ''}"
          id="nc-item-${_esc(item.id)}"
          onclick="ncClick('${_esc(item.id)}','${_esc(item.link||'')}','${_esc(item.source)}')">
       <div class="nc-chk-wrap" onclick="event.stopPropagation();ncToggle('${_esc(item.id)}')">
@@ -173,9 +179,16 @@
           ${!item.read ? '<span class="nc-badge-dot"></span>' : ''}
         </div>
         ${item.body ? `<div class="nc-item-body">${_esc(item.body)}</div>` : ''}
-        <div class="nc-meta">
+        ${hasAction ? `
+          <button class="nc-action-btn" onclick="event.stopPropagation();
+            typeof ph54_handleAction==='function'
+              ? ph54_handleAction('${_esc(item.actionType||'url')}','${_esc(item.actionUrl)}')
+              : window.open('${_esc(item.actionUrl)}','_blank')"
+          >${_esc(item.actionLabel)} →</button>` : ''}
+        <div class="nc-meta" style="margin-top:${hasAction?'8':'0'}px">
           <span class="nc-meta-time">🕐 ${item.time||'—'}</span>
           <span class="nc-meta-src">${SOURCE_LABEL[item.source]||''}</span>
+          ${isBroadcast ? '<span class="nc-broadcast-badge">📣 إعلان</span>' : ''}
           ${item.link&&item.link!=='null' ? '<span class="nc-meta-nav">انقر للانتقال ←</span>' : ''}
         </div>
       </div>

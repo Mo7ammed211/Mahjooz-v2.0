@@ -84,7 +84,18 @@ window.bookService = function(svcId) {
 
   const cat = AppData.cats.find(c => c.id === svc.catId);
   const isProfession = cat?.section === 'professions' || cat?.section === 'services';
-  const dispPrice = svc.finalPrice || svc.price;
+  
+  // ── Reset tier selection ──
+  const hasTiers = svc.tiers && svc.tiers.length > 0;
+  window.__ph40_selectedTier = null;
+  if (hasTiers) {
+    window.__ph40_selectedTier = { idx: 0, price: svc.tiers[0].price, name: svc.tiers[0].name };
+  }
+
+  const initialPrice = window.__ph40_selectedTier ? window.__ph40_selectedTier.price : (svc.finalPrice || svc.price);
+  const priceLabel = hasTiers 
+    ? `${initialPrice.toLocaleString('ar-YE')} ريال`
+    : (isProfession ? 'السعر بعد المعاينة' : (initialPrice ? initialPrice.toLocaleString('ar-YE')+' ريال' : 'السعر عند التواصل'));
 
   let issuesHtml = '';
   if (isProfession && svc.commonIssues && svc.commonIssues.length > 0) {
@@ -102,14 +113,23 @@ window.bookService = function(svcId) {
       </div>`;
   }
 
+  // Dynamic callback to update selected price inside modal
+  window.ph40_onTierSelected = function(idx, price, name) {
+    const priceDisp = document.getElementById('bk-selected-price-display');
+    if (priceDisp) {
+      priceDisp.innerText = price.toLocaleString('ar-YE') + ' ريال';
+    }
+  };
+
   openModal(`
     <div class="modal-header"><h2 class="modal-title">${isProfession ? '🛠️ طلب مهني' : '🛒 تأكيد الطلب'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="background:linear-gradient(135deg,rgba(139,92,246,.1),rgba(139,92,246,.05));border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px">
       <div style="font-size:28px;margin-bottom:8px">${svc.icon||'🔷'}</div>
       <div style="font-size:18px;font-weight:800">${svc.name}</div>
       <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${isProfession ? '👤 صاحب المهنة:' : '👤 مزود الخدمة:'} ${svc.providerName||svc.provider||'—'}</div>
-      <div style="font-size:26px;font-weight:800;margin-top:12px;color:#10b981">${isProfession ? 'السعر بعد المعاينة' : (dispPrice ? dispPrice.toLocaleString('ar-YE')+' ريال' : 'السعر عند التواصل')}</div>
+      <div id="bk-selected-price-display" style="font-size:26px;font-weight:800;margin-top:12px;color:#10b981">${priceLabel}</div>
     </div>
+    ${hasTiers ? ph40_renderTierSelector(svc) : ''}
     ${issuesHtml}
     <div class="form-group"><label class="form-label">📅 التاريخ المطلوب</label><input class="form-control" id="bk-date" type="date" min="${new Date().toISOString().split('T')[0]}"></div>
     <div class="form-group"><label class="form-label">⏰ الوقت المفضل</label><input class="form-control" id="bk-time" type="time"></div>
@@ -128,10 +148,14 @@ window.ph21_confirmOrder = async function(svcId) {
   const cat = AppData.cats.find(c => c.id === svc?.catId);
   const isProfession = cat?.section === 'professions' || cat?.section === 'services';
   const u   = State.currentUser;
-  const finalPrice = svc?.finalPrice || svc?.price;
+  
+  const tier = window.__ph40_selectedTier;
+  const finalPrice = tier ? tier.price : (svc?.finalPrice || svc?.price || 0);
+  const tierName = tier ? tier.name : null;
 
   await fsAdd('orders', {
     svcId, svcName: svc?.name, svcIcon: svc?.icon || '🔷',
+    tierName,
     providerUid: svc?.providerUid || '', providerName: svc?.providerName || svc?.provider || '',
     userId: u.uid, userName: u.name,
     finalPrice, date, time, note,
@@ -142,6 +166,7 @@ window.ph21_confirmOrder = async function(svcId) {
     createdAt: new Date(),
     orderRegionId: State.currentUser?.regionId || null,
   });
+  window.__ph40_selectedTier = null;
   closeModal();
   toast(isProfession ? '✅ تم إرسال طلبك لمزود الخدمة! بانتظار التواصل للمعاينة' : '✅ تم إرسال طلبك! بانتظار موافقة الإدارة', 'success');
 };
@@ -433,16 +458,7 @@ window.clearOldOrdersDb = async function() {
 
 window.renderAdminOrders = function() {
   const orders = AppData.orders || [];
-  
-  if (!window.hasClearedOldOrders) {
-    window.hasClearedOldOrders = true;
-    setTimeout(() => {
-      window.clearOldOrdersDb().then(res => {
-        if (window.toast) window.toast(res, 'success');
-      });
-    }, 1000);
-  }
-  
+
   if (!State.adminOrdersTab) State.adminOrdersTab = 'all';
   const activeOrdersTab = State.adminOrdersTab;
 

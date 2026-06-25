@@ -91,14 +91,16 @@ window.dp_saveGovernorate = async function(data, id = null) {
       active: data.active !== false,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
+    let resultId = id;
     if (id) {
       await db.collection('delivery_governorates').doc(id).update(payload);
     } else {
       payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('delivery_governorates').add(payload);
+      const docRef = await db.collection('delivery_governorates').add(payload);
+      resultId = docRef.id;
     }
     await dp_loadGovernorates();
-    return true;
+    return resultId || true;
   } catch(e) {
     console.error('[DeliveryPricing] فشل حفظ المحافظة:', e);
     return false;

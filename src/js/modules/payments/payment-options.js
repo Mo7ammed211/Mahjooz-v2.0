@@ -813,7 +813,7 @@ window.processDynamicPayment = async function() {
 
     // 2. Create the deposit record if bank transfer
     if (type === 'bank_transfer') {
-      await fsAdd('bank_deposits', {
+      const depRef = await fsAdd('bank_deposits', {
         orderId,
         customerId: details.u.uid,
         customerName: details.u.name,
@@ -822,6 +822,20 @@ window.processDynamicPayment = async function() {
         customerNote,
         receiptBase64,
         status: 'pending', // pending admin approval
+        createdAt: new Date()
+      });
+      await fsAdd('depositDocs', {
+        userId: details.u.uid,
+        userName: details.u.name,
+        userPhone: details.u.phone || '',
+        userRole: details.u.role || 'customer',
+        depositType: 'order_payment',
+        referenceId: orderId,
+        amount: parseFloat(details.total),
+        bankName: bankName || 'إيداع بنكي لدفع طلب',
+        transferDate: new Date().toISOString().split('T')[0],
+        receiptUrl: receiptBase64,
+        status: 'pending',
         createdAt: new Date()
       });
       // Notify Admin

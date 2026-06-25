@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="src/styles/index.css?v=2025c">
+  <link rel="stylesheet" href="src/styles/index.css?v=2026a">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
 
@@ -131,24 +131,6 @@
   <!-- Theme Transition Ripple Overlay -->
   <div id="theme-ripple"></div>
 
-  <!-- Smart Assistant Widget -->
-  <div id="chat-widget" style="display: none;">
-    <div id="chat-button" onclick="toggleChat()" title="المساعد الذكي لمحجوز">
-      <span style="font-size:28px;">👋</span>
-    </div>
-    <div id="chat-window">
-      <div class="chat-header">
-        <div>🤖 مساعد محجوز</div>
-        <button class="chat-close" onclick="toggleChat()">✕</button>
-      </div>
-      <div id="chat-messages"></div>
-      <div class="chat-input-area">
-        <input type="text" id="chat-input" placeholder="اكتب رسالتك هنا..." onkeypress="if(event.key==='Enter') sendChatMessage()">
-        <button onclick="sendChatMessage()">➤</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ═══════════════════════════════════════════════════════════
        CORE — أساسيات التطبيق (يجب تحميلها بهذا الترتيب)
        ═══════════════════════════════════════════════════════════ -->
@@ -156,28 +138,29 @@
   <script>window.ui_helpBtn = function(k,s){return '';};window.ui_showHelpModal = function(k){};</script>
   <script src="src/js/core/firebase-config.js"></script>  <!-- إعداد Firebase -->
   <script src="src/js/core/i18n.js"></script>             <!-- الترجمة عربي/إنجليزي -->
-  <script src="src/js/features/notifications.js"></script><!-- نظام الإشعارات -->
-  <script src="src/js/core/core.js?v=2.8.2"></script>             <!-- المنطق الأساسي + Router + State -->
+  <script src="src/js/features/notifications.js?v=2.8.3"></script><!-- نظام الإشعارات -->
+  <script src="src/js/core/core.js?v=2.8.6"></script>             <!-- المنطق الأساسي + Router + State -->
   <script src="src/js/modules/ui/help-system.js?v=2.0.0"></script>        <!-- نظام المساعدة والتعلم التفاعلي -->
   <script src="src/js/modules/ui/onboarding-tour.js?v=1.0.0"></script>  <!-- جولة ترحيبية تفاعلية للمستخدمين الجدد -->
-  <script src="src/js/modules/ui/help-chatbot.js?v=1.0.0"></script>     <!-- بوت مساعدة ذكي عائم -->
+  <script src="src/js/modules/ui/help-chatbot.js?v=2.8.3"></script>     <!-- بوت مساعدة ذكي عائم -->
 
   <!-- ═══════════════════════════════════════════════════════════
        FEATURES — الصفحات والواجهات الرئيسية
        ═══════════════════════════════════════════════════════════ -->
-  <script src="src/js/modules/alerts/item-alerts.js"></script>     <!-- Phase 48: نظام التنبيهات وحالات التوفر (يُحمَّل أولاً) -->
+  <script src="src/js/modules/alerts/item-alerts.js?v=2.8.7"></script>     <!-- Phase 48: نظام التنبيهات وحالات التوفر (يُحمَّل أولاً) -->
   <script src="src/js/features/pages.js?v=2.7.0"></script>        <!-- صفحات: الرئيسية، الحجوزات، الخدمات، المتاجر -->
-  <script src="src/js/features/dashboards.js?v=2.8.2"></script>   <!-- لوحات: المدير، المزود، المندوب، الموظف -->
-  <script src="src/js/features/chat.js"></script>         <!-- المساعد الذكي / الدردشة -->
+  <script src="src/js/features/dashboards.js?v=2.8.6"></script>   <!-- لوحات: المدير، المزود، المندوب، الموظف -->
+  <script src="src/js/features/chat.js?v=2.8.3"></script>         <!-- المساعد الذكي / الدردشة -->
   <script src="src/js/features/reports.js"></script>      <!-- التقارير والإحصائيات -->
   <script src="src/js/features/sample-data.js?v=2.5.1"></script>  <!-- بيانات تجريبية (اختياري) -->
-  <script src="src/js/features/extras.js?v=2.6.5"></script>       <!-- تسجيل دخول/اشتراك، المناطق، الحسابات البنكية -->
+  <script src="src/js/features/extras.js?v=2.8.6"></script>       <!-- تسجيل دخول/اشتراك، قاعدة العناوين، الحسابات البنكية -->
   <script src="src/js/features/help-center.js?v=1.0.0"></script>   <!-- مركز المساعدة والأسئلة الشائعة -->
+  <script src="src/js/features/customer-feedback.js?v=1.0.0"></script> <!-- اقتراحات وشكاوي واستفسارات العملاء -->
 
   <!-- ═══════════════════════════════════════════════════════════
        MODULES / services — الخدمات والتقييمات والمشاركة
        ═══════════════════════════════════════════════════════════ -->
-  <script src="src/js/modules/services/gallery.js"></script>       <!-- معرض الصور + البحث الذكي -->
+  <script src="src/js/modules/services/gallery.js?v=2.1.0"></script>       <!-- معرض الصور + البحث الذكي -->
   <script src="src/js/modules/services/ratings.js"></script>       <!-- نظام التقييمات -->
   <script src="src/js/modules/services/wishlist.js"></script>      <!-- المفضلة (Wishlist) -->
   <script src="src/js/modules/services/share.js?v=1.1.0"></script>         <!-- مشاركة الخدمة -->
@@ -185,15 +168,16 @@
   <!-- ═══════════════════════════════════════════════════════════
        MODULES / admin — أدوات لوحة المدير
        ═══════════════════════════════════════════════════════════ -->
-  <script src="src/js/modules/admin/stats.js?v=2.7.0"></script>            <!-- إحصائيات تفصيلية + إنشاء حسابات يدوي -->
+  <script src="src/js/modules/admin/stats.js?v=2.8.5"></script>            <!-- إحصائيات تفصيلية + إنشاء حسابات يدوي -->
   <script src="src/js/modules/admin/charts.js"></script>           <!-- مخططات Chart.js المتقدمة -->
   <script src="src/js/modules/admin/roles-permissions.js?v=1.0.1"></script><!-- الأدوار + العملات + الصلاحيات -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="src/js/modules/admin/bulk-import.js?v=2.5.1"></script>      <!-- استيراد CSV/Excel للتصنيفات والخدمات -->
   <script src="src/js/modules/admin/cms.js"></script>              <!-- إدارة المحتوى (نصوص، أيقونات، صفحات) -->
-  <script src="src/js/modules/admin/signup-form.js"></script>      <!-- منشئ نموذج التسجيل الديناميكي -->
+  <script src="src/js/modules/admin/signup-form.js?v=2.8.3"></script>      <!-- منشئ نموذج التسجيل الديناميكي -->
   <script src="src/js/modules/admin/ads.js"></script>              <!-- نظام الإعلانات الاحترافية -->
   <script src="src/js/modules/admin/products-catalog.js?v=1.0.5"></script> <!-- Phase 46: قاعدة بيانات المنتجات والخدمات الموحدة -->
+  <script src="src/js/modules/admin/db-manager.js"></script>               <!-- إدارة قواعد البيانات والأرشفة والاتفاقيات -->
 
   <!-- ═══════════════════════════════════════════════════════════
        MODULES / reports — التقارير وإرسال الفواتير
@@ -227,12 +211,12 @@
        MODULES / vendor — لوحة صاحب الخدمة
        ═══════════════════════════════════════════════════════════ -->
   <script src="src/js/modules/vendor/analytics.js?v=2.7.0"></script>       <!-- تحليلات المزود (إيرادات، طلبات، تقييم) -->
-  <script src="src/js/modules/vendor/workflow.js?v=2.7.1"></script>        <!-- سير عمل المزود + التسعير الديناميكي -->
+  <script src="src/js/modules/vendor/workflow.js?v=2.8.3"></script>        <!-- سير عمل المزود + التسعير الديناميكي -->
 
   <!-- ═══════════════════════════════════════════════════════════
        MODULES / delivery — نظام أسعار التوصيل الذكي
        ═══════════════════════════════════════════════════════════ -->
-  <script src="src/js/modules/delivery/delivery-pricing.js"></script><!-- أسعار التوصيل بين المناطق -->
+  <script src="src/js/modules/delivery/delivery-pricing.js?v=2.8.5"></script><!-- أسعار التوصيل بين المناطق -->
   <script src="src/js/modules/delivery/free-shipping.js"></script><!-- نظام التوصيل المجاني - Phase 35 -->
   <script src="src/js/modules/delivery/self-pickup.js"></script><!-- نظام الاستلام الشخصي - Phase 37 -->
   <script src="src/js/modules/services/reviews.js"></script><!-- نظام التقييمات والمراجعات - Phase 36 -->
@@ -260,32 +244,33 @@
   <script src="src/js/modules/notifications/notif-center.js?v=1.0.0"></script>  <!-- مركز الإشعارات الكامل -->
   <script src="src/js/modules/notifications/driver-messaging.js"></script>    <!-- مراسلة المندوبين من المدير -->
   <script src="src/js/modules/notifications/customer-deposit-alerts.js"></script> <!-- إشعارات تغيير حالة الإيداع للعميل -->
+  <script src="src/js/modules/notifications/rich-broadcast.js"></script>         <!-- التنبيهات الغنية مع الروابط والأزرار (Task #54) -->
   <script src="src/js/modules/tracking/admin-driver-map.js"></script>         <!-- خريطة تتبع المندوبين الحيّة -->
   <script src="src/js/modules/admin/driver-performance.js"></script>          <!-- تقرير أداء المندوبين -->
   <script src="src/js/modules/admin/driver-assign.js?v=1.0.2"></script>               <!-- تعيين المندوب على الطلب -->
   <script src="src/js/modules/availability/online-toggle.js"></script>        <!-- نظام الدوام والإتاحة للمزود والمندوب -->
   <script src="src/js/modules/availability/admin-availability-monitor.js"></script> <!-- مراقبة حالة الإتاحة للإدارة -->
-  <script src="src/js/modules/admin/wallet-security.js"></script>                  <!-- نظام أمان المحافظ المتكامل -->
+  <script src="src/js/modules/admin/wallet-security.js?v=2.8.4"></script>                  <!-- نظام أمان المحافظ المتكامل -->
 
   <!-- ═══════════════════════════════════════════════════════════
        MODULES / ui — واجهة المستخدم العامة
        ═══════════════════════════════════════════════════════════ -->
-  <script src="src/js/modules/ui/pwa-install.js"></script>
+  <script src="src/js/modules/ui/pwa-install.js?v=2.8.3"></script>
   <script src="src/js/modules/admin/alert-notes.js"></script>
   <script src="src/js/modules/ui/lightbox.js"></script>            <!-- معرض الصور + البحث الفوري + الفاتورة -->
-  <script src="src/js/modules/ui/favorites-routing.js"></script>   <!-- المفضلة + دفتر العناوين + خريطة التوصيل + onboarding -->
+  <script src="src/js/modules/ui/favorites-routing.js?v=2.8.3"></script>   <!-- المفضلة + دفتر العناوين + خريطة التوصيل + onboarding -->
   <script src="src/js/modules/ui/language.js"></script>            <!-- مبدّل اللغة (عربي/إنجليزي) -->
   <script src="src/js/modules/ui/media-upload.js?v=1.0.2"></script>        <!-- نظام رفع الوسائط الذكي — ضغط الصور + دعم الفيديو -->
 
   <!-- ═══════════════════════════════════════════════════════════
        PHASE 40-42 — فئات الحجز | دفتر العناوين | تحليلات متقدمة
        ═══════════════════════════════════════════════════════════ -->
-  <!-- booking-tiers.js محذوف — نظام الباقات تم إيقافه -->
+  <script src="src/js/modules/services/booking-tiers.js?v=2.1.0"></script>  <!-- Phase 40: نظام فئات الحجز — الخدمات والأنظمة -->
   <script src="src/js/modules/account/address-book.js"></script>       <!-- دفتر عناوين العميل -->
   <script src="src/js/modules/admin/advanced-analytics.js"></script>   <!-- تحليلات متقدمة + صلاحيات الموظفين -->
-  <script src="src/js/modules/stores/store-system.js?v=2.6.5"></script>        <!-- نظام المتاجر والصيدليات + سلة التسوق -->
+  <script src="src/js/modules/stores/store-system.js?v=2.7.0"></script>        <!-- نظام المتاجر والصيدليات + سلة التسوق -->
   <script src="src/js/modules/digital/digital-store-system.js"></script> <!-- نظام المنتجات الرقمية المستقل -->
-  <script src="src/js/modules/rental/rental-system.js?v=2.6.4"></script>         <!-- نظام التأجير (جديد) -->
+  <script src="src/js/modules/rental/rental-system.js?v=2.6.5"></script>         <!-- نظام التأجير (جديد) -->
   <script src="src/js/modules/offers/offers-system.js"></script>                 <!-- نظام العروض والخصومات (القسم الرابع) -->
   <script src="src/js/modules/admin/staff-assignments.js"></script>              <!-- نظام تعيين الأقسام والمناطق للموظفين -->
   <script src="src/js/modules/admin/provider-groups.js"></script>               <!-- نظام فروع وتصنيفات مزودي الخدمات -->
