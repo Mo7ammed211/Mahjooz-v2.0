@@ -1622,6 +1622,11 @@ window.ph43_renderProductCard = function(p, storeId, u) {
   const hasTiers = p.tiers && p.tiers.length > 0;
   const cartItems = ph43_getCart().filter(i => i.productId === p.id || i.productId.startsWith(p.id + '_'));
   const inCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+  // عدد المشترين من هذا المنتج
+  const buyCount = (AppData.orders||[]).filter(o =>
+    o.status !== 'cancelled' &&
+    Array.isArray(o.items) && o.items.some(i => i.productId === p.id)
+  ).length;
 
   const activeOffer = typeof ph_getActiveOffer === 'function' ? ph_getActiveOffer(p.id) : null;
   const offerPct = activeOffer ? (activeOffer.discountPercent || (activeOffer.originalPrice > 0 ? Math.round(((activeOffer.originalPrice - activeOffer.discountedPrice) / activeOffer.originalPrice) * 100) : 0)) : 0;
@@ -1719,7 +1724,10 @@ window.ph43_renderProductCard = function(p, storeId, u) {
       </div>
     </div>
     <div class="ph43-product-footer">
-      <div class="ph43-product-price-block">${priceHtml}</div>
+      <div class="ph43-product-price-block">
+        ${priceHtml}
+        ${buyCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:2px 8px;margin-top:5px">👥 ${buyCount.toLocaleString('ar-YE')} شراء</span>` : ''}
+      </div>
       <div class="ph43-product-actions">
         ${btnHtml}
         ${waUrlStore ? `
@@ -1800,6 +1808,7 @@ window.ph43_showProductDetails = function(pid, storeId) {
       <span>${escHtml(p.name)}</span>
       ${p.sku ? `<span style="font-family:monospace;font-size:13px;font-weight:700;background:rgba(139,92,246,0.12);color:#8b5cf6;border:1px solid rgba(139,92,246,0.25);border-radius:6px;padding:3px 8px;letter-spacing:0.5px;">#${escHtml(p.sku)}</span>` : ''}
     </div>
+    ${(() => { const bc = (AppData.orders||[]).filter(o => o.status !== 'cancelled' && Array.isArray(o.items) && o.items.some(i => i.productId === p.id)).length; return bc > 0 ? `<div style="margin-bottom:10px;text-align:right"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:3px 12px">\ud83d\udc65 ${bc.toLocaleString('ar-YE')} شخص اشترى هذا المنتج</span></div>` : ''; })()}
     ${stockChipHtml ? `<div style="margin-bottom:10px; text-align:right;">${stockChipHtml}</div>` : ''}
     ${window.ph47_getProductLocationHtml ? window.ph47_getProductLocationHtml(p.assignedVendors) : ''}
     ${p.desc ? `<div style="font-size:15px; line-height:1.6; color:var(--text-secondary); margin-bottom:16px; white-space:pre-wrap; text-align:right">${escHtml(p.desc)}</div>` : ''}

@@ -910,10 +910,50 @@ function renderAdminUsers() {
   ];
 
   const searchQuery = (State.adminSearch || '').toLowerCase();
+  
+  // Base role filter
   let users = activeFilter === 'all' ? allUsers : allUsers.filter(u => {
     if (activeFilter === 'vendor') return u.role === 'vendor' || u.role === 'provider';
     return u.role === activeFilter;
   });
+
+  // 1. Status Filter
+  if (State.adminFilterStatus === 'active') {
+    users = users.filter(u => !u.suspended);
+  } else if (State.adminFilterStatus === 'suspended') {
+    users = users.filter(u => !!u.suspended);
+  }
+
+  // 2. Verification Filter
+  if (State.adminFilterVerification === 'email_verified') {
+    users = users.filter(u => !!u.emailVerified);
+  } else if (State.adminFilterVerification === 'phone_verified') {
+    users = users.filter(u => !!u.phoneVerified);
+  } else if (State.adminFilterVerification === 'unverified') {
+    users = users.filter(u => !u.emailVerified && !u.phoneVerified);
+  }
+
+  // 3. Governorate Filter
+  if (State.adminFilterGov && State.adminFilterGov !== 'all') {
+    const targetGov = (AppData.deliveryGovernorates || []).find(g => g.id === State.adminFilterGov);
+    const govName = targetGov ? targetGov.name : '';
+    users = users.filter(u => u.govId === State.adminFilterGov || (u.gov && u.gov === govName));
+  }
+
+  // 4. Zone Filter
+  if (State.adminFilterZone && State.adminFilterZone !== 'all') {
+    const targetZone = (AppData.deliveryZones || AppData.regions || []).find(z => z.id === State.adminFilterZone);
+    const zoneName = targetZone ? targetZone.name : '';
+    users = users.filter(u => u.regionId === State.adminFilterZone || (u.region && u.region === zoneName));
+  }
+
+  // 5. Subzone Filter
+  if (State.adminFilterSubzone && State.adminFilterSubzone !== 'all') {
+    const targetSubzone = (AppData.deliverySubzones || []).find(sz => sz.id === State.adminFilterSubzone);
+    const subzoneName = targetSubzone ? targetSubzone.name : '';
+    users = users.filter(u => u.subzoneId === State.adminFilterSubzone || (u.subzoneName && u.subzoneName === subzoneName));
+  }
+
   const filteredUsers = users.filter(u =>
     (u.name || '').toLowerCase().includes(searchQuery) ||
     (u.email || '').toLowerCase().includes(searchQuery) ||
@@ -930,7 +970,16 @@ function renderAdminUsers() {
     .au-sidebar-count{margin-inline-start:auto;font-size:11px;background:var(--bg-secondary);border-radius:20px;padding:2px 8px;font-weight:600;color:var(--text-muted)}
     .au-sidebar-btn.active .au-sidebar-count{background:var(--primary);color:#fff}
     .au-main{flex:1;min-width:0}
-    @media(max-width:640px){.au-layout{flex-direction:column}.au-sidebar{width:100%;flex-direction:row;flex-wrap:wrap}}
+    .au-filter-bar { background: var(--bg-card); border: 1px solid var(--glass-border); padding: 18px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; border-radius: 16px; box-shadow: var(--shadow-sm); }
+    .au-filter-col { display: flex; flex-direction: column; gap: 4px; }
+    .au-filter-label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 2px; }
+    .usys-svc-card.au-interactive-card { cursor: pointer; transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s, border-color 0.22s; display: flex; flex-direction: column; justify-content: space-between; height: 100%; border: 1.5px solid var(--glass-border); }
+    .usys-svc-card.au-interactive-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.15); border-color: rgba(139, 92, 246, 0.35); }
+    @media(max-width:640px){
+      .au-layout{flex-direction:column}
+      .au-sidebar{width:100%;flex-direction:row;flex-wrap:wrap}
+      .au-filter-bar { grid-template-columns: 1fr; }
+    }
   </style>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
     <h2>👥 إدارة المستخدمين (${filteredUsers.length})</h2>
@@ -943,6 +992,53 @@ function renderAdminUsers() {
       ${canCreate ? `<button class="btn btn-primary" onclick="typeof showAddUserModal === 'function' ? showAddUserModal() : (typeof ph17_openCreateUser === 'function' ? ph17_openCreateUser() : null)">➕ إضافة مستخدم</button>` : ''}
     </div>
   </div>
+
+  <!-- لوحة فلاتر الفرز الجغرافي والمتقدمة -->
+  <div class="au-filter-bar">
+    <div class="au-filter-col">
+      <span class="au-filter-label">🏛️ المحافظة</span>
+      <select class="form-control" onchange="window.adminSetGovFilter(this.value)">
+        <option value="all">كل المحافظات</option>
+        ${(AppData.deliveryGovernorates || []).map(g => `<option value="${g.id}" ${State.adminFilterGov === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="au-filter-col">
+      <span class="au-filter-label">📍 المنطقة / المدينة</span>
+      <select class="form-control" id="filter-zone-select" onchange="window.adminSetZoneFilter(this.value)" ${!State.adminFilterGov || State.adminFilterGov === 'all' ? 'disabled' : ''}>
+        <option value="all">كل المناطق</option>
+        ${State.adminFilterGov && State.adminFilterGov !== 'all'
+          ? (AppData.deliveryZones || AppData.regions || []).filter(z => z.govId === State.adminFilterGov).map(z => `<option value="${z.id}" ${State.adminFilterZone === z.id ? 'selected' : ''}>${escHtml(z.name)}</option>`).join('')
+          : ''}
+      </select>
+    </div>
+    <div class="au-filter-col">
+      <span class="au-filter-label">🏘️ الحي / المنطقة الفرعية</span>
+      <select class="form-control" id="filter-subzone-select" onchange="window.adminSetSubzoneFilter(this.value)" ${!State.adminFilterZone || State.adminFilterZone === 'all' ? 'disabled' : ''}>
+        <option value="all">كل الأحياء</option>
+        ${State.adminFilterZone && State.adminFilterZone !== 'all'
+          ? (AppData.deliverySubzones || []).filter(sz => sz.zoneId === State.adminFilterZone).map(sz => `<option value="${sz.id}" ${State.adminFilterSubzone === sz.id ? 'selected' : ''}>${escHtml(sz.name)}</option>`).join('')
+          : ''}
+      </select>
+    </div>
+    <div class="au-filter-col">
+      <span class="au-filter-label">⏸️ حالة الحساب</span>
+      <select class="form-control" onchange="State.adminFilterStatus = this.value; render();">
+        <option value="all" ${State.adminFilterStatus === 'all' || !State.adminFilterStatus ? 'selected' : ''}>جميع الحالات</option>
+        <option value="active" ${State.adminFilterStatus === 'active' ? 'selected' : ''}>نشط</option>
+        <option value="suspended" ${State.adminFilterStatus === 'suspended' ? 'selected' : ''}>معلق</option>
+      </select>
+    </div>
+    <div class="au-filter-col">
+      <span class="au-filter-label">🛡️ التوثيق</span>
+      <select class="form-control" onchange="State.adminFilterVerification = this.value; render();">
+        <option value="all" ${State.adminFilterVerification === 'all' || !State.adminFilterVerification ? 'selected' : ''}>كل الحسابات</option>
+        <option value="email_verified" ${State.adminFilterVerification === 'email_verified' ? 'selected' : ''}>موثّق البريد</option>
+        <option value="phone_verified" ${State.adminFilterVerification === 'phone_verified' ? 'selected' : ''}>موثّق الجوال</option>
+        <option value="unverified" ${State.adminFilterVerification === 'unverified' ? 'selected' : ''}>غير موثّق</option>
+      </select>
+    </div>
+  </div>
+
   <div class="au-layout">
     <div class="au-sidebar">
       ${sidebarRoles.map(r => {
@@ -956,17 +1052,17 @@ function renderAdminUsers() {
       }).join('')}
     </div>
     <div class="au-main">
-      <div class="usys-svc-grid" style="margin-top:10px">
-        ${filteredUsers.length === 0 ? `<div class="empty-state" style="grid-column:1/-1;background:var(--bg-card);border:1px dashed var(--border);border-radius:14px;padding:30px;text-align:center;color:var(--text-muted)"><div style="font-size:30px;margin-bottom:10px">🔍</div>لا يوجد مستخدمون في هذه الفئة</div>` :
+      <div class="usys-svc-grid" style="margin-top:0">
+        ${filteredUsers.length === 0 ? `<div class="empty-state" style="grid-column:1/-1;background:var(--bg-card);border:1px dashed var(--border);border-radius:14px;padding:30px;text-align:center;color:var(--text-muted)"><div style="font-size:30px;margin-bottom:10px">🔍</div>لا يوجد مستخدمون يطابقون خيارات الفلترة المحددة</div>` :
         filteredUsers.map(u=>{
           const sus = !!u.suspended;
           return `
-          <div class="usys-svc-card" style="${sus?'opacity:0.6;filter:grayscale(0.5)':''}">
+          <div class="usys-svc-card au-interactive-card" style="${sus?'opacity:0.65;filter:grayscale(0.3)':''}" onclick="showUserDetails('${u.id || u.uid}')">
             <div class="usys-svc-card-top" style="margin-bottom:12px">
               <div style="display:flex;align-items:center;gap:10px">
                 ${u.photoBase64 ? `<img src="${u.photoBase64}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.1)">` : `<div style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#a389f4);color:#fff;font-size:16px;font-weight:800;box-shadow:0 2px 8px rgba(139,92,246,0.3)">${(u.name||'؟').charAt(0)}</div>`}
                 <div>
-                  <div class="usys-svc-name" style="font-size:15px;margin-bottom:2px">${escHtml(u.name||'—')}</div>
+                  <div class="usys-svc-name" style="font-size:15px;margin-bottom:2px;font-weight:700">${escHtml(u.name||'—')}</div>
                   <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px">
                     ${sus?'<span style="color:#ef4444;font-weight:700">⏸️ معلّق</span>':'<span style="color:#10b981;font-weight:700">✅ نشط</span>'}
                   </div>
@@ -974,44 +1070,27 @@ function renderAdminUsers() {
               </div>
             </div>
             <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-              <span class="badge ${roleBadge[u.role]||'badge-purple'}" style="font-size:11px;padding:4px 8px">${roleIcon[u.role]||''} ${roleLabel[u.role]||u.role||'—'}</span>
+              <span class="badge ${roleBadge[u.role]||'badge-purple'}" style="font-size:10px;padding:3px 8px">${roleIcon[u.role]||''} ${roleLabel[u.role]||u.role||'—'}</span>
               ${(u.role==='vendor'||u.role==='provider') ? (()=>{
                 const grp = (AppData.providerGroups||[]).find(g=>g.id===u.providerGroupId);
                 return grp
-                  ? `<span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(139,92,246,0.12);color:var(--primary);border:1px solid rgba(139,92,246,0.25);font-weight:600">${grp.icon||'🏢'} ${escHtml(grp.name)}</span>`
-                  : `<span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(100,116,139,0.1);color:var(--text-muted);border:1px solid rgba(100,116,139,0.2);font-weight:500">غير مصنّف</span>`;
+                  ? `<span style="font-size:10px;padding:3px 6px;border-radius:20px;background:rgba(139,92,246,0.08);color:var(--primary);border:1px solid rgba(139,92,246,0.15);font-weight:600">${grp.icon||'🏢'} ${escHtml(grp.name)}</span>`
+                  : `<span style="font-size:10px;padding:3px 6px;border-radius:20px;background:rgba(100,116,139,0.08);color:var(--text-muted);border:1px solid rgba(100,116,139,0.15);font-weight:500">غير تصنيفي</span>`;
               })() : ''}
             </div>
-            <div class="usys-svc-desc" style="font-size:12px;display:flex;flex-direction:column;gap:6px;margin-bottom:16px;flex:1">
-              <div style="display:flex;align-items:center;gap:6px;justify-content:space-between">
-                <div style="display:flex;align-items:center;gap:6px;color:var(--text-secondary);min-width:0;flex:1">
-                  <span style="font-size:14px;flex-shrink:0">📧</span>
-                  <span style="direction:ltr;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'—'}</span>
-                </div>
-                ${isAdmin && u.email ? `<button onclick="adminToggleVerify('${u.id||u.uid}','email',${!!u.emailVerified})"
-                  style="flex-shrink:0;padding:2px 8px;border-radius:20px;border:1px solid ${u.emailVerified?'rgba(16,185,129,0.4)':'rgba(239,68,68,0.3)'};background:${u.emailVerified?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};color:${u.emailVerified?'#10b981':'#ef4444'};cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap"
-                  title="${u.emailVerified?'إلغاء توثيق البريد':'توثيق البريد'}"
-                  >${u.emailVerified?'✅ موثّق':'✕ غير موثّق'}</button>` : ''}
+            <div class="usys-svc-desc" style="font-size:12px;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;flex:1">
+              <div style="display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                <span style="font-size:13px;flex-shrink:0">📧</span>
+                <span style="direction:ltr;font-family:monospace">${u.email||'—'}</span>
               </div>
-              <div style="display:flex;align-items:center;gap:6px;justify-content:space-between">
-                <div style="display:flex;align-items:center;gap:6px;color:var(--text-secondary);min-width:0;flex:1">
-                  <span style="font-size:14px;flex-shrink:0">📞</span>
-                  <span style="direction:ltr;font-family:monospace">${u.phone||'—'}</span>
-                </div>
-                ${isAdmin && u.phone ? `<button onclick="adminToggleVerify('${u.id||u.uid}','phone',${!!u.phoneVerified})"
-                  style="flex-shrink:0;padding:2px 8px;border-radius:20px;border:1px solid ${u.phoneVerified?'rgba(16,185,129,0.4)':'rgba(239,68,68,0.3)'};background:${u.phoneVerified?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};color:${u.phoneVerified?'#10b981':'#ef4444'};cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap"
-                  title="${u.phoneVerified?'إلغاء توثيق الجوال':'توثيق الجوال'}"
-                  >${u.phoneVerified?'✅ موثّق':'✕ غير موثّق'}</button>` : ''}
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:13px;flex-shrink:0">📞</span>
+                <span style="direction:ltr;font-family:monospace">${u.phone||'—'}</span>
               </div>
             </div>
-            <div class="usys-svc-footer" style="border-top:1px solid var(--border);padding-top:12px;margin-top:auto">
-              ${(canViewWallets && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase())) ? `<div style="text-align:center;font-weight:700;margin-bottom:8px;color:#10b981;font-size:14px">${AppData.wallets ? (AppData.wallets[u.id || u.uid]?.balance || 0) : 0} ر</div>` : ''}
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-sm btn-secondary" style="flex:1" onclick="showUserDetails('${u.id}')">👁️ عرض</button>
-                ${(isAdmin && (u.role === 'staff' || u.role === 'admin')) ? `<button class="btn btn-sm btn-secondary" onclick="showPermsModal('${u.id}')" title="صلاحيات">🔑</button>` : ''}
-                ${(canAdjust && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase())) ? `<button class="btn btn-sm btn-secondary" onclick="wsecOpenAdjust('${u.id}')" title="تعديل رصيد">💰</button>` : ''}
-                ${isAdmin ? `<button class="btn btn-sm" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)" onclick="deleteUser('${u.id}')">🗑️</button>` : ''}
-              </div>
+            <div class="usys-svc-footer" style="border-top:1px solid var(--border);padding-top:10px;margin-top:auto;display:flex;align-items:center;justify-content:space-between">
+              ${(canViewWallets && u.role && !['admin', 'super_admin', 'staff', 'cs'].includes(String(u.role).toLowerCase())) ? `<div style="font-weight:800;color:#10b981;font-size:13px">💰 ${(AppData.wallets && AppData.wallets[u.id || u.uid]?.balance || 0).toLocaleString('ar-YE')} ر</div>` : '<div></div>'}
+              <span style="font-size:11px;font-weight:700;color:var(--primary)">التفاصيل والإجراءات ←</span>
             </div>
           </div>`;
         }).join('')}
@@ -1023,6 +1102,44 @@ function renderAdminUsers() {
     </div>
   </div>`;
 }
+
+window.adminSetGovFilter = function(govId) {
+  State.adminFilterGov = govId;
+  State.adminFilterZone = 'all';
+  State.adminFilterSubzone = 'all';
+  render();
+};
+
+window.adminSetZoneFilter = function(zoneId) {
+  State.adminFilterZone = zoneId;
+  State.adminFilterSubzone = 'all';
+  render();
+};
+
+window.adminSetSubzoneFilter = function(subzoneId) {
+  State.adminFilterSubzone = subzoneId;
+  render();
+};
+
+window.adminToggleSuspend = async function(userId, currentSuspended) {
+  const newVal = !currentSuspended;
+  const action = newVal ? 'تجميد' : 'تنشيط';
+  if (!confirm(`هل أنت متأكد من ${action} حساب هذا المستخدم؟`)) return;
+  showLoader('جاري تحديث الحالة...');
+  try {
+    await fsUpdate('users', userId, { suspended: newVal });
+    const idx = (AppData.users||[]).findIndex(u => (u.id||u.uid) === userId);
+    if (idx !== -1) AppData.users[idx].suspended = newVal;
+    hideLoader();
+    closeModal();
+    toast(`✅ تم ${action} الحساب بنجاح!`, 'success');
+    render();
+  } catch (e) {
+    hideLoader();
+    toast('خطأ أثناء التحديث: ' + (e.message || e), 'error');
+  }
+};
+
 window.adminToggleVerify = async function(userId, field, currentVal) {
   const newVal = !currentVal;
   const fieldLabel = field === 'phone' ? 'الجوال' : 'البريد الإلكتروني';
@@ -1031,31 +1148,175 @@ window.adminToggleVerify = async function(userId, field, currentVal) {
   try {
     const key = field === 'phone' ? 'phoneVerified' : 'emailVerified';
     await fsUpdate('users', userId, { [key]: newVal });
-    // تحديث AppData محلياً دون إعادة تحميل كاملة
     const idx = (AppData.users||[]).findIndex(u => (u.id||u.uid) === userId);
     if (idx !== -1) AppData.users[idx][key] = newVal;
     toast(`✅ تم ${action} ${fieldLabel} بنجاح`, 'success');
-    render();
+    // تحديث تفاصيل المستخدم المفتوحة في المودال فوراً
+    showUserDetails(userId);
   } catch (e) {
     toast('خطأ: ' + (e.message || e), 'error');
   }
 };
 
-async function deleteUser(userId) {
-  if (!confirm('حذف هذا المستخدم؟')) return;
-  await fsDelete('users', userId);
-  toast('تم حذف المستخدم','success'); await render();
-}
-function showUserDetails(userId) {
-  const u = AppData.users.find(x=>x.id===userId);
+window.deleteUser = async function(userId) {
+  if (!confirm('🚨 تحذير: هل تريد حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+  showLoader('جاري حذف المستخدم...');
+  try {
+    await fsDelete('users', userId);
+    const idx = (AppData.users||[]).findIndex(u => (u.id||u.uid) === userId);
+    if (idx !== -1) AppData.users.splice(idx, 1);
+    hideLoader();
+    closeModal();
+    toast('✅ تم حذف المستخدم بنجاح', 'success');
+    render();
+  } catch (e) {
+    hideLoader();
+    toast('خطأ أثناء الحذف: ' + e.message, 'error');
+  }
+};
+
+window.showUserDetails = function(userId) {
+  const u = AppData.users.find(x => (x.id || x.uid) === userId);
   if (!u) return;
-  openModal(`
-    <div class="modal-header"><h2 class="modal-title">معلومات المستخدم</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div class="form-group"><label>الاسم</label><div class="form-value">${u.name}</div></div>
-    <div class="form-group"><label>البريع</label><div class="form-value">${u.email}</div></div>
-    <div class="form-group"><label>الجوال</label><div class="form-value">${u.phone||'—'}</div></div>
-    <div class="form-group"><label>النوع</label><div class="form-value"><span class="badge badge-teal">${u.role}</span></div></div>
-    <div class="form-group"><label>تاريخ التسجيل</label><div class="form-value">${fmtDate(u.createdAt)}</div></div>`);
+
+  const me = State.currentUser;
+  const isAdmin = me?.role === 'admin';
+  const canAdjust = isAdmin || (typeof userHasPerm === 'function' && userHasPerm(me, 'adjust_wallets'));
+  const canViewWallets = isAdmin || (typeof userHasPerm === 'function' && userHasPerm(me, 'view_wallets'));
+
+  const roleLabel = { admin:'مدير', staff:'موظف', vendor:'مزود خدمة', driver:'مندوب', customer:'عميل', guest:'زائر', cs:'موظف', provider:'مزود خدمة' };
+  const statusLabel = u.suspended ? '⏸️ معلّق' : '✅ نشط';
+  const regDate = u.createdAt ? fmtDateTime(u.createdAt) : 'غير معروف';
+
+  // Geographic info resolution
+  const govObj = (AppData.deliveryGovernorates || []).find(g => g.id === u.govId);
+  const zoneObj = (AppData.deliveryZones || AppData.regions || []).find(z => z.id === u.regionId);
+  const subzoneObj = (AppData.deliverySubzones || []).find(s => s.id === u.subzoneId);
+
+  const geoText = [
+    govObj ? `🏛️ ${govObj.name}` : '',
+    zoneObj ? `📍 ${zoneObj.name}` : '',
+    subzoneObj ? `🏘️ ${subzoneObj.name}` : ''
+  ].filter(Boolean).join(' › ') || u.region || 'لم تُحدد المنطقة بعد';
+
+  const balance = AppData.wallets ? (AppData.wallets[userId]?.balance || 0) : 0;
+
+  let modalHtml = `
+    <div class="modal-header">
+      <h2 class="modal-title">👤 تفاصيل الحساب والإجراءات</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div style="display:flex; gap:20px; flex-direction:column; padding: 4px;">
+      <!-- معلومات الملف الشخصي -->
+      <div style="display:flex; align-items:center; gap:16px; background:rgba(255,255,255,0.02); padding:16px; border-radius:14px; border:1px solid var(--border)">
+        ${u.photoBase64 
+          ? `<img src="${u.photoBase64}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border: 2px solid var(--primary)">`
+          : `<div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#a389f4); color:#fff; font-size:24px; font-weight:800; display:flex; align-items:center; justify-content:center">${(u.name||'؟').charAt(0)}</div>`}
+        <div style="flex:1">
+          <div style="font-size:18px; font-weight:800; margin-bottom:4px">${escHtml(u.name || '—')}</div>
+          <div style="font-size:12px; color:var(--text-muted)">المعرف: <code style="direction:ltr; display:inline-block">${u.id || u.uid}</code></div>
+        </div>
+        <div style="text-align:left">
+          <span class="badge badge-purple" style="padding: 6px 12px; font-size:12px">${roleLabel[u.role] || u.role}</span>
+        </div>
+      </div>
+
+      <!-- شبكة البيانات -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">📧 البريد الإلكتروني</label>
+          <div style="font-size:14px; font-weight:600; direction:ltr; text-align:right">${escHtml(u.email || '—')}</div>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">📱 رقم الجوال</label>
+          <div style="font-size:14px; font-weight:600; direction:ltr; text-align:right">${escHtml(u.phone || '—')}</div>
+        </div>
+        ${u.phone2 ? `
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">📞 رقم هاتف إضافي (احتياطي)</label>
+          <div style="font-size:14px; font-weight:600; direction:ltr; text-align:right">${escHtml(u.phone2)}</div>
+        </div>` : ''}
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">📅 تاريخ التسجيل</label>
+          <div style="font-size:14px; font-weight:600">${regDate}</div>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">🚦 حالة الحساب</label>
+          <div style="font-size:14px; font-weight:700; color:${u.suspended ? '#ef4444' : '#10b981'}">${statusLabel}</div>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label" style="color:var(--text-muted);font-size:12px">🗺️ الموقع الجغرافي</label>
+          <div style="font-size:13px; font-weight:600; color:var(--text-secondary)">${escHtml(geoText)}</div>
+        </div>
+      </div>
+
+      <!-- تفاصيل إضافية للمزودين والمناديب -->
+      ${u.role === 'vendor' || u.role === 'provider' || u.role === 'driver' ? `
+        <div style="background:rgba(139,92,246,0.03); padding:14px; border-radius:12px; border:1px dashed var(--primary); margin-top:8px">
+          <h4 style="margin-bottom:8px; color:var(--primary); font-size:14px">ℹ️ تفاصيل العمل الخاصة بالدور:</h4>
+          <div style="font-size:13px; color:var(--text-secondary); display:flex; flex-direction:column; gap:6px">
+            <div>التصنيف المهني/المجموعة: <strong>${(() => {
+              const grp = (AppData.providerGroups||[]).find(g=>g.id===u.providerGroupId);
+              return grp ? `${grp.icon||'🏢'} ${grp.name}` : 'غير مصنف';
+            })()}</strong></div>
+            ${u.vendorType ? `<div>نوع النشاط التجاري: <strong>${u.vendorType === 'store' ? '🏪 متجر/صيدلية' : '🔧 خدمات وحجوزات'}</strong></div>` : ''}
+            ${u.housePics && u.housePics.length ? `
+              <div style="margin-top:8px">
+                <div>📸 المرفقات المرفوعة (صور المنزل/الهوية):</div>
+                <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
+                  ${u.housePics.map(pic => `<a href="${pic}" target="_blank"><img src="${pic}" style="width:60px; height:60px; object-fit:cover; border-radius:8px; border:1px solid var(--border)"></a>`).join('')}
+                </div>
+              </div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- الرصيد الحالي -->
+      ${canViewWallets ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:12px 16px; margin-top:8px;">
+          <div>
+            <span style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:2px">💰 الرصيد الحالي بالمحفظة</span>
+            <strong style="font-size:18px; color:#10b981">${balance.toLocaleString('ar-YE')} <span style="font-size:12px">ريال</span></strong>
+          </div>
+          ${canAdjust ? `<button class="btn btn-sm btn-secondary" onclick="closeModal(); setTimeout(() => wsecOpenAdjust('${u.id}'), 200)">💸 شحن / تعديل الرصيد</button>` : ''}
+        </div>
+      ` : ''}
+
+      <!-- لوحة التحكم في الحساب (إجراءات الإدارة) -->
+      ${isAdmin ? `
+        <div style="border-top: 1px solid var(--border); padding-top:16px; margin-top:10px">
+          <h3 style="font-size:14px; font-weight:800; margin-bottom:12px; color:var(--rose)">⚙️ لوحة إجراءات المدير:</h3>
+          
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <!-- تجميد / تفعيل -->
+            <button class="btn ${u.suspended ? 'btn-success' : 'btn-warning'} btn-sm" style="flex:1; min-width:140px; margin:0;"
+                    onclick="adminToggleSuspend('${u.id}', ${!!u.suspended})">
+              ${u.suspended ? '▶️ تفعيل الحساب' : '⏸️ تجميد الحساب'}
+            </button>
+
+            <!-- توثيق الجوال والبريد -->
+            <button class="btn btn-sm btn-secondary" style="flex:1; min-width:140px; margin:0;"
+                    onclick="adminToggleVerify('${u.id}', 'phone', ${!!u.phoneVerified})">
+              ${u.phoneVerified ? '✕ إلغاء توثيق الجوال' : '✅ توثيق الجوال'}
+            </button>
+            <button class="btn btn-sm btn-secondary" style="flex:1; min-width:140px; margin:0;"
+                    onclick="adminToggleVerify('${u.id}', 'email', ${!!u.emailVerified})">
+              ${u.emailVerified ? '✕ إلغاء توثيق البريد' : '✅ توثيق البريد'}
+            </button>
+
+            <!-- صلاحيات الموظفين -->
+            ${u.role === 'staff' || u.role === 'admin' ? `
+              <button class="btn btn-sm btn-secondary" style="flex:1; min-width:140px; margin:0;"
+                      onclick="closeModal(); setTimeout(() => showPermsModal('${u.id}'), 200)">
+                🔑 إدارة صلاحيات الدور
+              </button>
+            ` : ''}
+
+            <!-- حذف الحساب نهائياً -->
+            <button class="btn btn-sm" style="background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.25); flex:1; min-width:140px; margin:0;"
+                    onclick="deleteUser('${u.id}')">
+              🗑️ حذف الحساب
+            </button>
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  openModal(modalHtml);
 }
 
 function renderAdminCats() {

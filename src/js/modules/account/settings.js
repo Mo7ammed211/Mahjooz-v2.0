@@ -19,6 +19,11 @@
   add('photo_max_hint',     'أقصى حجم 10 ميجا — JPG / PNG / WEBP', 'Max 10MB — JPG/PNG/WEBP');
   add('full_name_label',    'الاسم الكامل',                 'Full name');
   add('phone_label',        'رقم الجوال',                   'Phone');
+  add('phone2_label',       'رقم هاتف إضافي (اختياري)',     'Secondary phone (optional)');
+  add('phone2_add',         '➕ إضافة رقم هاتف إضافي',      '➕ Add secondary phone');
+  add('phone2_edit',        '✏️ تعديل الرقم الإضافي',       '✏️ Edit secondary phone');
+  add('phone2_remove',      '🗑️ حذف الرقم الإضافي',        '🗑️ Remove secondary phone');
+  add('phone2_hint',        'رقم احتياطي للتواصل في حالة تعذّر الوصول عبر الرقم الرئيسي', 'Backup contact number');
   add('age_label',          'العمر',                        'Age');
   add('email_label',        'البريد الإلكتروني',            'Email');
   add('role_label',         'الدور',                        'Role');
@@ -227,6 +232,26 @@ window.renderSettingsPage = function () {
           </div>
           <div class="app-setting-chev">←</div>
         </button>
+      </div>
+
+      <!-- Secondary phone (optional, no OTP required) -->
+      <div class="ph9-card">
+        <div class="ph9-card-head"><h3>📞 ${t('phone2_label')}</h3></div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-card,rgba(255,255,255,0.03));border:1.5px solid var(--glass-border,rgba(255,255,255,0.08));border-radius:14px;">
+            <span style="font-size:22px">📞</span>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:700;direction:ltr;text-align:right">${escHtml(u.phone2||'—')}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${t('phone2_hint')}</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="ph9_editPhone2()">
+            ${u.phone2 ? t('phone2_edit') : t('phone2_add')}
+          </button>
+          ${u.phone2 ? `<button class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)" onclick="ph9_removePhone2()">${t('phone2_remove')}</button>` : ''}
+        </div>
       </div>
 
       <!-- Account info (read-only) -->
@@ -484,6 +509,75 @@ window.ph9_confirmPhoneOTP = async function () {
   } catch (e) {
     hideLoader();
     toast('تعذّر الحفظ: ' + (e.message || e), 'error');
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+//  3c) Secondary phone — add / edit / remove (no OTP needed)
+// ════════════════════════════════════════════════════════════
+window.ph9_editPhone2 = function () {
+  const u = State.currentUser;
+  if (!u) return;
+  openModal(`
+    <div class="modal-header">
+      <h2 class="modal-title">📞 ${u.phone2 ? t('phone2_edit') : t('phone2_add')}</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <p style="color:var(--text-secondary); margin-bottom:16px; font-size:13px; line-height:1.7">
+      ${t('phone2_hint')}
+    </p>
+    <div class="form-group">
+      <label class="form-label">رقم الهاتف الإضافي</label>
+      <div style="display:flex; gap:8px">
+        <input class="form-control" id="ph9-phone2-input" type="tel" placeholder="+9677..."
+               value="${escAttr(u.phone2||'')}" style="flex:1; direction:ltr; text-align:right">
+      </div>
+    </div>
+    <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px 14px;font-size:12px;color:#d97706;margin-bottom:16px">
+      ℹ️ هذا الرقم اختياري ولا يُستخدم لتسجيل الدخول — للتواصل الاحتياطي فقط.
+    </div>
+    <button class="btn btn-primary btn-block" onclick="ph9_savePhone2()">
+      💾 حفظ الرقم الإضافي
+    </button>
+  `);
+  // Focus input
+  setTimeout(() => { document.getElementById('ph9-phone2-input')?.focus(); }, 200);
+};
+
+window.ph9_savePhone2 = async function () {
+  const phone2 = document.getElementById('ph9-phone2-input')?.value.trim();
+  if (!phone2 || phone2.length < 7) { toast('أدخل رقم هاتف صالح (7 أرقام على الأقل)', 'error'); return; }
+  const u = State.currentUser;
+  showLoader('جاري الحفظ...');
+  try {
+    await fsUpdate('users', u.uid, { phone2 });
+    State.currentUser = { ...u, phone2 };
+    hideLoader();
+    closeModal();
+    toast('✅ تم حفظ رقم الهاتف الإضافي بنجاح!', 'success');
+    await render();
+  } catch (e) {
+    hideLoader();
+    toast('تعذّر الحفظ: ' + (e.message || e), 'error');
+  }
+};
+
+window.ph9_removePhone2 = async function () {
+  const u = State.currentUser;
+  if (!u) return;
+  if (!confirm('هل تريد حذف رقم الهاتف الإضافي؟')) return;
+  showLoader('جاري الحذف...');
+  try {
+    await fsUpdate('users', u.uid, { phone2: firebase.firestore.FieldValue.delete() });
+    const updated = { ...u };
+    delete updated.phone2;
+    State.currentUser = updated;
+    hideLoader();
+    toast('✅ تم حذف رقم الهاتف الإضافي', 'success');
+    await render();
+  } catch (e) {
+    hideLoader();
+    toast('تعذّر الحذف: ' + (e.message || e), 'error');
   }
 };
 

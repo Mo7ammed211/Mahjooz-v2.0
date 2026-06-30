@@ -153,6 +153,8 @@ function renderServiceCard(s) {
   const distance = (userC && s.lat && s.lng) ? _haversine(userC.lat, userC.lng, s.lat, s.lng).toFixed(1) : null;
   const cat = AppData.cats?.find(c => c.id === s.catId);
   const isProf = cat?.section === 'professions' || cat?.section === 'services';
+  // عدد الحاجزين لهذه الخدمة
+  const bookCount = (AppData.orders||[]).filter(o => o.serviceId === s.id && o.status !== 'cancelled').length;
 
   const activeOffer = typeof ph_getActiveOffer === 'function' ? ph_getActiveOffer(s.id) : null;
   const offerPct = activeOffer ? (activeOffer.discountPercent || (activeOffer.originalPrice > 0 ? Math.round(((activeOffer.originalPrice - activeOffer.discountedPrice) / activeOffer.originalPrice) * 100) : 0)) : 0;
@@ -300,6 +302,7 @@ function renderServiceDetail() {
           ${open === true ? `<span class="svc-badge open" style="position:static">🟢 ${t('currently_open')}</span>` : ''}
           ${open === false ? `<span class="svc-badge closed" style="position:static">⚪ ${t('currently_closed')}</span>` : ''}
           ${avg ? `<span class="svc-badge" style="position:static;background:rgba(245,158,11,0.18);color:#fbbf24">⭐ ${avg} (${rating.length})</span>` : ''}
+          ${(() => { const bc = (AppData.orders||[]).filter(o => o.serviceId === s.id && o.status !== 'cancelled').length; return bc > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:3px 10px">👥 ${bc.toLocaleString('ar-YE')} حجز</span>` : ''; })()}
           ${stockChipHtml}
         </div>
         <div class="svc-price-big">${priceDisp}</div>

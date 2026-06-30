@@ -600,6 +600,8 @@ function renderServiceCard(s) {
   const avg = rating.length ? (rating.reduce((a,r)=>a+(r.vendorStars||0),0)/rating.length).toFixed(1) : null;
   const cat = AppData.cats.find(c => c.id === s.catId);
   const isProf = cat?.section === 'professions' || cat?.section === 'services';
+  // عدد الحاجزين لهذه الخدمة
+  const bookCount = (AppData.orders||[]).filter(o => o.serviceId === s.id && o.status !== 'cancelled').length;
 
   const activeOffer = typeof ph_getActiveOffer === 'function' ? ph_getActiveOffer(s.id) : null;
   const offerPct = activeOffer ? (activeOffer.discountPercent || (activeOffer.originalPrice > 0 ? Math.round(((activeOffer.originalPrice - activeOffer.discountedPrice) / activeOffer.originalPrice) * 100) : 0)) : 0;
@@ -655,6 +657,7 @@ function renderServiceCard(s) {
           : defaultPriceHtml}
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:13px;color:var(--text-muted)">${avg?'⭐ '+avg+' ('+rating.length+' تقييم)':'لا يوجد تقييم بعد'}</span>
+          ${bookCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:2px 9px">👥 ${bookCount.toLocaleString('ar-YE')} حجز</span>` : ''}
           ${rating.length ? `<button id="ph36-reviews-btn" onclick="ph36_showReviewsModal('${s.id}','${(s.name||'').replace(/'/g,'\\\'')}')" style="font-size:11px;color:var(--primary);cursor:pointer;padding:2px 8px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-family:inherit;text-decoration:none">اقرأ التقييمات</button>` : ''}
         </div>
       </div>
@@ -1410,6 +1413,7 @@ function renderSettingsPage() {
           <span>الدور</span><strong>${{admin:'مدير',staff:'موظف',vendor:'مزود خدمة',driver:'مندوب',customer:'عميل',provider:'مزود خدمة'}[u?.role]||u?.role}</strong>
         </div>
         ${u?.phone ? `<div class="info-row"><span>رقم الهاتف</span><strong>${u.phone}</strong></div>` : ''}
+        ${u?.phone2 ? `<div class="info-row"><span>رقم هاتف إضافي</span><strong style="direction:ltr;display:inline-block">${u.phone2}</strong></div>` : ''}
       </div>
 
       <div class="settings-card">

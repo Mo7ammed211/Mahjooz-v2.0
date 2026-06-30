@@ -53,6 +53,7 @@ window.ph15_buildSnapshot = async function () {
     appVersion: 'v3.5',
     profile: {
       uid: u.uid, name: u.name, email: u.email, phone: u.phone,
+      phone2: u.phone2 || null,
       role: u.role, regionId: u.regionId, age: u.age,
       twoFAEnabled: !!u.twoFAEnabled, prefLang: u.prefLang || null,
       hasPhoto: !!u.photoBase64,
@@ -141,6 +142,7 @@ window.ph15_exportPDF = async function () {
           <tr><td style="padding:4px;color:#888;width:140px">الاسم</td><td style="padding:4px"><b>${norm.profile.name || '—'}</b></td></tr>
           <tr><td style="padding:4px;color:#888">البريد</td><td style="padding:4px">${norm.profile.email || '—'}</td></tr>
           <tr><td style="padding:4px;color:#888">الجوال</td><td style="padding:4px">${norm.profile.phone || '—'}</td></tr>
+          ${norm.profile.phone2 ? `<tr><td style="padding:4px;color:#888">هاتف إضافي</td><td style="padding:4px">${norm.profile.phone2}</td></tr>` : ''}
           <tr><td style="padding:4px;color:#888">الدور</td><td style="padding:4px">${norm.profile.role || '—'}</td></tr>
           <tr><td style="padding:4px;color:#888">المنطقة</td><td style="padding:4px">${norm.profile.regionId || '—'}</td></tr>
           <tr><td style="padding:4px;color:#888">المصادقة الثنائية</td><td style="padding:4px">${norm.profile.twoFAEnabled ? 'مفعّلة' : 'معطّلة'}</td></tr>

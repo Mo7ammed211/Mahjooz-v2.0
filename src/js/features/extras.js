@@ -1180,8 +1180,11 @@ async function doSignup() {
       firstLogin: false,
       onboardingSeen: false,
       geoLocation: SignupState.geo || null,
-      housePics: SignupState.housePics || []
+      housePics: SignupState.housePics || [],
     };
+    // إضافة رقم الهاتف الإضافي فقط إذا كان المستخدم أدخله
+    const _phone2Val = document.getElementById('su-phone2')?.value?.trim();
+    if (_phone2Val && _phone2Val.length >= 7) userData.phone2 = _phone2Val;
 
     for (const [k, v] of Object.entries(data)) {
       if (k !== 'pass' && userData[k] === undefined) {
@@ -1663,7 +1666,18 @@ window._generateSignupFieldsHTML = function(role, regionOpts) {
     
     html += `</div>`;
     return html;
-  }).join('');
+  }).join('') + `
+  <div class="form-group" style="grid-column: 1/-1; margin-top:4px;">
+    <label class="form-label">
+      📞 رقم هاتف إضافي <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(اختياري — للتواصل الاحتياطي فقط)</span>
+    </label>
+    <input type="tel" class="form-control" id="su-phone2"
+           placeholder="+9677... (اختياري)"
+           style="direction:ltr; text-align:right">
+    <div style="font-size:11px;color:var(--text-muted);margin-top:5px;‪">
+      ⚠️ هذا الرقم احتياطي فقط ولا يستخدم لتسجيل الدخول.
+    </div>
+  </div>`;
 };
 
 // ─── Cascading Governorate → Zone selector for signup ────────────────────────
