@@ -493,10 +493,10 @@
       display: none; flex-direction: column;
       position: absolute; top: calc(100% + 12px); inset-inline-end: 0;
       width: 360px; max-height: 560px; overflow: hidden;
-      background: var(--bg-card, #1e293b);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: #13111d;
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 20px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05);
       z-index: 9999; font-family: 'Cairo', sans-serif; direction: rtl;
       animation: ubSlideIn 0.25s cubic-bezier(0.22,1,0.36,1);
     }
@@ -511,7 +511,7 @@
     .ub-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 16px 12px;
-      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(99,102,241,0.06));
+      background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(99,102,241,0.08));
       border-bottom: 1px solid rgba(255,255,255,0.08);
       flex-shrink: 0; border-radius: 20px 20px 0 0;
     }
@@ -609,14 +609,14 @@
     .ub-item {
       display: flex; align-items: flex-start; gap: 10px;
       padding: 11px 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
       transition: background 0.15s; position: relative;
     }
     .ub-item:last-child { border-bottom: none; }
-    .ub-item:hover { background: rgba(255,255,255,0.04); }
-    .ub-item.ub-unread { background: rgba(14,165,233,0.05); }
-    .ub-item.ub-unread:hover { background: rgba(14,165,233,0.09); }
-    .ub-error-item:hover { background: rgba(239,68,68,0.04); }
+    .ub-item:hover { background: rgba(255,255,255,0.05); }
+    .ub-item.ub-unread { background: rgba(14,165,233,0.08); }
+    .ub-item.ub-unread:hover { background: rgba(14,165,233,0.12); }
+    .ub-error-item:hover { background: rgba(239,68,68,0.06); }
 
     .ub-item-icon-wrap {
       width: 38px; height: 38px; border-radius: 10px;
@@ -670,9 +670,9 @@
     /* ════ Footer ════ */
     .ub-footer {
       padding: 10px 12px;
-      border-top: 1px solid rgba(255,255,255,0.07);
+      border-top: 1px solid rgba(255,255,255,0.08);
       flex-shrink: 0; border-radius: 0 0 20px 20px;
-      background: rgba(255,255,255,0.02);
+      background: rgba(0,0,0,0.3);
     }
     .ub-footer-btn {
       width: 100%;
