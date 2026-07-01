@@ -181,10 +181,10 @@
           </div>` : ''}
           ${sliced.map(item => _renderItem(item, id)).join('')}
           ${extra > 0 ? `
-          <div class="ub-more" data-filter-id="${id}" onclick="setUBFilter('${id}')">
+          <div class="ub-more" data-filter-id="${id}" onclick="event.stopPropagation();setUBFilter('${id}')">
             + ${extra} إشعار آخر — اضغط للعرض
           </div>` : (isSpecificFilter && src.items.length > 0 ? `
-          <div class="ub-back" onclick="setUBFilter('all')">
+          <div class="ub-back" onclick="event.stopPropagation();setUBFilter('all')">
             ← عودة لعرض الكل
           </div>` : '')}
         </div>`;
@@ -343,9 +343,14 @@
     _updateErrorBadge();
 
     // Close panels on outside click
+    // Use composedPath() to capture the original click target BEFORE any innerHTML replacement
+    // removes the clicked element from the DOM (which would make contains() falsely return false)
     document.addEventListener('click', e => {
       const mainWrap = document.getElementById('unified-bell-wrap');
-      if (mainWrap && !mainWrap.contains(e.target)) {
+      if (!mainWrap) return;
+      const path = e.composedPath ? e.composedPath() : (e.path || []);
+      const clickedInsideWrap = path.includes(mainWrap) || mainWrap.contains(e.target);
+      if (!clickedInsideWrap) {
         document.getElementById('unified-bell-panel')?.classList.remove('ub-open');
         document.getElementById('ub-error-panel')?.classList.remove('ub-open');
         _panelOpen = false;
