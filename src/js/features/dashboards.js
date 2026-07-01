@@ -1301,7 +1301,7 @@ window.showUserDetails = function(userId) {
             </button>
 
             <!-- صلاحيات الموظفين -->
-            ${u.role === 'staff' || u.role === 'admin' ? `
+            ${u.role === 'staff' ? `
               <button class="btn btn-sm btn-secondary" style="flex:1; min-width:140px; margin:0;"
                       onclick="closeModal(); setTimeout(() => showPermsModal('${u.id}'), 200)">
                 🔑 إدارة صلاحيات الدور

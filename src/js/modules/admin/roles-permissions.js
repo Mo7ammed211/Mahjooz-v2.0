@@ -362,7 +362,7 @@
   window.showPermsModal = function (userId) {
     const u = (AppData.users || []).find(x => x.id === userId);
     if (!u) return;
-    if (u.role !== 'staff' && u.role !== 'admin') {
+    if (u.role !== 'staff') {
       toast('لا يمكن منح صلاحيات إدارية إلا للموظفين فقط.', 'error');
       return;
     }
@@ -397,7 +397,7 @@
   window.ph17_savePerms = async function (userId) {
     const u = (AppData.users || []).find(x => x.id === userId);
     if (!u) return;
-    if (u.role !== 'staff' && u.role !== 'admin') {
+    if (u.role !== 'staff') {
       toast('لا يمكن منح صلاحيات إدارية إلا للموظفين فقط.', 'error');
       return;
     }
