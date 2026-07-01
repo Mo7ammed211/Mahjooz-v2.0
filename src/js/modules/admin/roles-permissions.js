@@ -335,28 +335,116 @@
   };
   PH17_EXTRA_PERMS.forEach(p => PH17_PERM_LABELS[p.k] = p.l);
 
+  // ← expose labels globally so stats.js can access them
+  window.PH17_PERM_LABELS = PH17_PERM_LABELS;
+
+  // Returns ONLY the 48 page-level permissions (old action-based ones handled via fallback)
   window.ph17_allPerms = function () {
-    const base = (typeof ALL_PERMS !== 'undefined' && Array.isArray(ALL_PERMS)) ? ALL_PERMS : [];
-    const extras = PH17_EXTRA_PERMS.map(p => p.k);
-    return Array.from(new Set(base.concat(extras)));
+    return PH17_EXTRA_PERMS.map(p => p.k);
   };
+
   window.ph17_hasPerm = function (user, key) {
     if (!user) return false;
     if (user.role === 'admin') return true;
     if (user.role !== 'staff') return false; // الصلاحيات تمنح فقط للموظفين
     const perms = user.permissions || {};
-    
-    // Fallback logic for action-based permissions
-    if (key === 'view_orders' && perms.orders) return true;
-    if (key === 'edit_orders' && perms.orders) return true;
-    if (key === 'create_users' && perms.users) return true;
-    if (key === 'view_wallets' && perms.wallet) return true;
-    if (key === 'adjust_wallets' && perms.wallet) return true;
-    if (key === 'view_reports' && perms.reports) return true;
-    
+
+    // Fallback logic for legacy action-based permissions
+    if (key === 'view_orders'   && perms.orders)  return true;
+    if (key === 'edit_orders'   && perms.orders)  return true;
+    if (key === 'create_users'  && perms.users)   return true;
+    if (key === 'view_wallets'  && perms.wallet)  return true;
+    if (key === 'adjust_wallets'&& perms.wallet)  return true;
+    if (key === 'view_reports'  && perms.reports) return true;
+
     return !!perms[key];
   };
   window.userHasPerm = window.ph17_hasPerm;
+
+  // ── عرض صلاحيات موظف بشكل مفصّل (modal للقراءة فقط) ──────────────────
+  window.showStaffPermsView = function (userId) {
+    const u = (AppData.users || []).find(x => x.id === userId);
+    if (!u) return;
+
+    const ALL    = typeof ph17_allPerms === 'function' ? ph17_allPerms() : [];
+    const LABELS = window.PH17_PERM_LABELS || {};
+    const perms  = u.role === 'admin'
+      ? Object.fromEntries(ALL.map(k => [k, true]))
+      : (u.permissions || {});
+    const activeCount = ALL.filter(k => perms[k]).length;
+
+    // Group permissions by their emoji/category prefix
+    const GROUP_MAP = {
+      '📊': 'الإحصائيات والتقارير',
+      '⚙️': 'الأنظمة المستقلة',
+      '📦': 'العمليات والطلبات',
+      '💰': 'الإدارة المالية',
+      '🎨': 'التسويق والمحتوى',
+      '👥': 'إدارة المستخدمين',
+      '🔧': 'إعدادات النظام',
+      '📝': 'العمليات والطلبات'
+    };
+    const groups = {};
+    ALL.forEach(k => {
+      const raw   = LABELS[k] || k;
+      const match = raw.match(/^(📊|⚙️|📦|💰|🎨|👥|🔧|📝)/);
+      const emoji = match ? match[1] : '🔑';
+      const gName = GROUP_MAP[emoji] || 'أخرى';
+      if (!groups[gName]) groups[gName] = { emoji, items: [] };
+      // Strip category prefix from label for display
+      const shortLabel = raw.replace(/^[📊⚙️📦💰🎨👥🔧📝🔑]\s*[^:]+:\s*/, '');
+      groups[gName].items.push({ k, label: shortLabel });
+    });
+
+    const groupsHtml = Object.entries(groups).map(([gName, g]) => `
+      <div style="margin-bottom:18px">
+        <div style="font-weight:800;font-size:13px;color:var(--text-muted);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase">${g.emoji} ${gName}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          ${g.items.map(({ k, label }) => {
+            const has = !!perms[k];
+            return `<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;background:${has ? 'rgba(16,185,129,.08)' : 'rgba(239,68,68,.05)'}">
+              <span style="font-size:15px;flex-shrink:0">${has ? '✅' : '❌'}</span>
+              <span style="font-size:12px;color:${has ? 'var(--text-main)' : 'var(--text-muted)'};line-height:1.3">${escHtml(label)}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+
+    const roleLabel = { admin: 'مدير النظام', staff: 'موظف' };
+    const roleBadge = { admin: 'badge-rose',  staff: 'badge-purple' };
+
+    openModal(`
+      <div class="modal-header">
+        <h2 class="modal-title">🔑 صلاحيات: ${escHtml(u.name || u.email || '—')}</h2>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px;background:var(--bg-hover);border-radius:12px">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#0d9488);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;flex-shrink:0">${(u.name||u.email||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:16px">${escHtml(u.name||'—')}</div>
+          <div style="font-size:12px;color:var(--text-muted);direction:ltr">${escHtml(u.email||'—')}</div>
+        </div>
+        <div style="text-align:center;flex-shrink:0">
+          <span class="badge ${roleBadge[u.role]||'badge-purple'}">${roleLabel[u.role]||u.role}</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${activeCount} / ${ALL.length} صلاحية</div>
+        </div>
+      </div>
+
+      ${u.role === 'admin' ? `
+        <div style="padding:10px 14px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;color:#10b981;font-size:13px;margin-bottom:14px;text-align:center">
+          ⭐ مدير النظام — يمتلك كافة الصلاحيات تلقائياً ولا تحتاج لتخصيص
+        </div>` : ''}
+
+      <div style="max-height:52vh;overflow-y:auto;padding-left:2px">${groupsHtml}</div>
+
+      ${u.role === 'staff' ? `
+        <button class="btn btn-primary btn-block" style="margin-top:14px"
+          onclick="closeModal(); setTimeout(() => showPermsModal('${userId}'), 200)">
+          ✏️ تعديل الصلاحيات
+        </button>` : ''}
+    `);
+  };
 
   // Override showPermsModal to support all roles + new perms.
   window.showPermsModal = function (userId) {

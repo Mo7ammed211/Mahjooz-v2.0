@@ -590,15 +590,26 @@ function renderAdminPermissions() {
               ? Object.fromEntries(ALL.map(p=>[p,true]))
               : (u.permissions || {});
             const active = ALL.filter(p => perms[p]).length;
-            return `<tr>
-              <td style="font-weight:600">${escHtml(u.name||'—')}</td>
+            const pct    = ALL.length ? Math.round(active / ALL.length * 100) : 0;
+            return `<tr style="cursor:pointer" onclick="showStaffPermsView('${u.id}')">
+              <td style="font-weight:700">${escHtml(u.name||'—')}</td>
               <td><span class="badge ${roleBadge[u.role]||'badge-purple'}">${roleLabel[u.role]||u.role||'—'}</span></td>
-              <td style="font-size:13px;color:var(--text-secondary);direction:ltr;text-align:left">${escHtml(u.email||'—')}</td>
-              <td><strong style="color:var(--accent-purple)">${active}</strong> / ${ALL.length}</td>
+              <td style="font-size:12px;color:var(--text-secondary);direction:ltr;text-align:left">${escHtml(u.email||'—')}</td>
               <td>
-                ${u.role === 'admin'
-                  ? '<span style="color:var(--text-muted);font-size:12px">— صلاحيات كاملة بشكل تلقائي —</span>'
-                  : `<button class="btn btn-sm btn-primary" onclick="showPermsModal('${u.id}')">🔑 تعديل الصلاحيات</button>`}
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden;min-width:60px">
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#7c3aed,#0d9488);border-radius:4px;transition:.3s"></div>
+                  </div>
+                  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0"><strong style="color:var(--accent-purple)">${active}</strong>/${ALL.length}</span>
+                </div>
+              </td>
+              <td onclick="event.stopPropagation()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button class="btn btn-sm btn-secondary" onclick="showStaffPermsView('${u.id}')">👁️ عرض</button>
+                  ${u.role === 'staff'
+                    ? `<button class="btn btn-sm btn-primary" onclick="showPermsModal('${u.id}')">✏️ تعديل</button>`
+                    : '<span style="color:var(--text-muted);font-size:11px">كاملة تلقائياً</span>'}
+                </div>
               </td>
             </tr>`;
           }).join('') : `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">
