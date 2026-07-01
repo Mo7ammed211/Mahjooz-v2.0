@@ -553,24 +553,38 @@ window.renderAdminOrders = function() {
 
   return `
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Tajawal:wght@400;500;700;900&display=swap');
+      
       .admin-orders-container, .orders-tab-switcher, .admin-table, .tab-btn {
-        font-family: 'Tajawal', sans-serif !important;
+        font-family: 'Outfit', 'Tajawal', sans-serif !important;
       }
+      
       #app-content:has(.admin-orders-container) {
-        max-width: 98% !important;
-        width: 98% !important;
-        padding: 20px 1% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 24px 2% !important;
       }
+      
+      .admin-orders-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 8px 12px;
+      }
+      
+      /* Glassmorphic Tab Switcher */
       .orders-tab-switcher {
         display: flex;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 4px;
-        margin-bottom: 20px;
+        background: rgba(30, 27, 75, 0.4);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 6px;
+        margin-bottom: 24px;
         max-width: 100%;
         overflow-x: auto;
-        gap: 6px;
+        gap: 8px;
         white-space: nowrap;
         scrollbar-width: none;
       }
@@ -580,83 +594,191 @@ window.renderAdminOrders = function() {
       .orders-tab-switcher .tab-btn {
         flex-shrink: 0;
         border: 0;
-        padding: 8px 14px;
-        border-radius: 8px;
+        padding: 10px 18px;
+        border-radius: 12px;
         font-weight: 700;
-        font-size: 11.5px;
+        font-size: 13px;
         background: none;
         color: var(--text-secondary);
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        white-space: nowrap !important;
+        gap: 8px;
       }
       .orders-tab-switcher .tab-btn.active {
-        background: var(--primary) !important;
+        background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
         color: #fff !important;
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
       }
       .orders-tab-switcher .tab-btn:hover:not(.active) {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.06);
         color: var(--text-main);
       }
       .order-tab-badge {
-        font-size: 10px;
-        background: rgba(255, 255, 255, 0.15);
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.12);
         color: inherit;
-        padding: 1px 6px;
-        border-radius: 99px;
+        padding: 2px 8px;
+        border-radius: 20px;
         font-weight: 800;
       }
       .orders-tab-switcher .tab-btn.active .order-tab-badge {
         background: rgba(255, 255, 255, 0.25);
       }
-      
+
+      /* Premium Table Design */
+      .table-wrap {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); 
+        border-radius: 16px; 
+        border: 1px solid rgba(255, 255, 255, 0.08); 
+        overflow-x: auto; 
+        background: rgba(26, 21, 44, 0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        width: 100%;
+        transition: border-color 0.3s;
+      }
       .admin-table {
         width: 100% !important;
         border-collapse: collapse !important;
       }
       .admin-table th {
-        background: rgba(255, 255, 255, 0.02) !important;
+        background: rgba(15, 10, 30, 0.8) !important;
         color: var(--text-secondary) !important;
         font-weight: 700 !important;
-        font-size: 12px !important;
-        padding: 10px 12px !important;
-        border-bottom: 2px solid var(--border) !important;
+        font-size: 13px !important;
+        padding: 16px 20px !important;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.08) !important;
         text-align: right !important;
         white-space: nowrap !important;
       }
       .admin-table td {
-        padding: 10px 12px !important;
-        font-size: 11.5px !important;
-        border-bottom: 1px solid var(--border) !important;
+        padding: 16px 20px !important;
+        font-size: 13px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
         vertical-align: middle !important;
         color: var(--text-main) !important;
-        white-space: nowrap !important;
+        transition: background-color 0.2s;
       }
-      .admin-table tr:hover {
-        background: rgba(255, 255, 255, 0.01) !important;
+      .admin-table tbody tr {
+        transition: background-color 0.2s ease;
+      }
+      .admin-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02) !important;
+      }
+      .admin-table tbody tr:last-child td {
+        border-bottom: none !important;
       }
       
+      /* Premium Badges */
+      .badge {
+        font-weight: 700;
+        font-size: 11px;
+        padding: 6px 12px;
+        border-radius: 30px;
+        display: inline-block;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+      .badge-gold {
+        background: rgba(245, 158, 11, 0.15) !important;
+        color: #f59e0b !important;
+        border: 1px solid rgba(245, 158, 11, 0.3) !important;
+      }
+      .badge-purple {
+        background: rgba(139, 92, 246, 0.15) !important;
+        color: #a78bfa !important;
+        border: 1px solid rgba(139, 92, 246, 0.3) !important;
+      }
+      .badge-teal {
+        background: rgba(20, 184, 166, 0.15) !important;
+        color: #14b8a6 !important;
+        border: 1px solid rgba(20, 184, 166, 0.3) !important;
+      }
+      .badge-rose {
+        background: rgba(244, 63, 94, 0.15) !important;
+        color: #fb7185 !important;
+        border: 1px solid rgba(244, 63, 94, 0.3) !important;
+      }
+
+      /* Premium Buttons */
+      .btn-action-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .btn-action-row button {
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      }
+      .btn-action-row button:hover {
+        transform: translateY(-1.5px);
+        filter: brightness(1.1);
+        box-shadow: 0 6px 14px rgba(0,0,0,0.18);
+      }
+      .btn-action-row button:active {
+        transform: translateY(0);
+      }
+      
+      .btn-details {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+      }
+      .btn-pdf {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        border: none;
+        color: #fff;
+      }
+      .btn-send {
+        background: linear-gradient(135deg, #0d9488, #0f766e);
+        border: none;
+        color: #fff;
+      }
+      .btn-approve {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        color: #fff;
+      }
+      .btn-reject {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+        color: #fff;
+      }
+
+      /* Date Grid */
       .date-col-box {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 4px;
       }
       .date-item {
         display: flex;
         align-items: center;
-        gap: 4px;
-        font-size: 11px;
+        gap: 6px;
+        font-size: 12px;
         color: var(--text-secondary);
-        white-space: nowrap;
       }
       .date-item.highlight {
-        color: var(--primary);
+        color: #a78bfa;
         font-weight: 700;
+        background: rgba(139, 92, 246, 0.08);
+        padding: 2px 8px;
+        border-radius: 6px;
+        display: inline-flex;
+        border: 1px solid rgba(139, 92, 246, 0.15);
       }
     </style>
 
@@ -693,18 +815,18 @@ window.renderAdminOrders = function() {
       </div>
 
       ${displayOrders.length ? `
-        <div class="table-wrap" style="box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; background: var(--bg-card); width: 100%">
+        <div class="table-wrap">
           <table class="admin-table">
              <thead>
               <tr>
-                <th style="width: 8%">رقم الطلب</th>
-                <th style="width: 15%">الخدمة</th>
-                <th style="width: 12%">العميل</th>
-                <th style="width: 14%">المزود / المهنة</th>
-                <th style="width: 13%">التفاصيل المالية</th>
-                <th style="width: 16%">تاريخ ووقت تقديم الطلب</th>
-                <th style="width: 10%">الحالة</th>
-                <th style="text-align: center !important; width: 12%">إجراءات العمل</th>
+                <th style="width: 100px; min-width: 90px;">رقم الطلب</th>
+                <th style="min-width: 160px;">الخدمة</th>
+                <th style="min-width: 130px;">العميل</th>
+                <th style="min-width: 130px;">المزود / المهنة</th>
+                <th style="min-width: 130px;">التفاصيل المالية</th>
+                <th style="min-width: 170px;">تاريخ ووقت تقديم الطلب</th>
+                <th style="width: 110px; min-width: 110px;">الحالة</th>
+                <th style="text-align: center !important; min-width: 260px;">إجراءات العمل</th>
               </tr>
             </thead>
             <tbody>
@@ -715,7 +837,7 @@ window.renderAdminOrders = function() {
                   <td>
                     <span style="font-family:monospace;font-weight:700;color:var(--text-muted);white-space:nowrap">#${o.orderId || o.id.substring(0, 8)}</span>
                   </td>
-                  <td>
+                  <td style="white-space: normal !important;">
                     <div style="display:flex;align-items:center;gap:6px">
                       <span style="font-weight:700">${escHtml(o.svcName || '—')}</span>
                     </div>
@@ -748,20 +870,20 @@ window.renderAdminOrders = function() {
                     </div>
                   </td>
                   <td>
-                    <span class="badge ${statusBadge[o.status] || 'badge-purple'}" style="font-size: 10px; padding: 4px 8px; white-space:nowrap">${statusLabel[o.status] || o.status}</span>
+                    <span class="badge ${statusBadge[o.status] || 'badge-purple'}" style="white-space:nowrap">${statusLabel[o.status] || o.status}</span>
                   </td>
                   <td>
-                    <div style="display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:nowrap">
-                      <button class="btn btn-sm btn-secondary" onclick="showOrderDetails('${o.id}')" title="عرض التفاصيل" style="padding:6px 9px; font-size: 11px; font-family:'Tajawal', sans-serif">تفاصيل</button>
-                      <button class="btn btn-sm btn-secondary" onclick="ph6_generateInvoice('${o.id}')" title="تحميل فاتورة PDF" style="background:#7c3aed;color:#fff;border-color:#7c3aed;padding:6px 9px; font-size: 11px; font-family:'Tajawal', sans-serif">PDF</button>
-                      <button class="btn btn-sm btn-secondary" onclick="ph7_showSendDialog('${o.id}')" title="إرسال الفاتورة" style="background:#10b981;color:#fff;border-color:#10b981;padding:6px 9px; font-size: 11px; font-family:'Tajawal', sans-serif">إرسال</button>
+                    <div class="btn-action-row">
+                      <button class="btn btn-sm btn-details" onclick="showOrderDetails('${o.id}')" title="عرض التفاصيل">👁️ تفاصيل</button>
+                      <button class="btn btn-sm btn-pdf" onclick="ph6_generateInvoice('${o.id}')" title="تحميل فاتورة PDF">📄 PDF</button>
+                      <button class="btn btn-sm btn-send" onclick="ph7_showSendDialog('${o.id}')" title="إرسال الفاتورة">💬 إرسال</button>
                       
                       ${o.status === 'pending_admin' ? `
-                        <button class="btn btn-sm btn-success" onclick="ph43_approveAndAutoRoute('${o.id}')" style="padding:6px 10px; font-size: 10px; white-space: nowrap; font-family:'Tajawal', sans-serif">موافقة وتوجيه</button>
-                        <button class="btn btn-sm btn-danger" onclick="ph21_adminReject('${o.id}')" style="padding:6px 10px; font-size: 10px; white-space: nowrap; font-family:'Tajawal', sans-serif">رفض</button>
+                        <button class="btn btn-sm btn-approve" onclick="ph43_approveAndAutoRoute('${o.id}')">✅ موافقة وتوجيه</button>
+                        <button class="btn btn-sm btn-reject" onclick="ph21_adminReject('${o.id}')">❌ رفض</button>
                       ` : o.status === 'pending_final_admin' ? `
-                        <button class="btn btn-sm btn-success" onclick="ph43_adminFinalApprove('${o.id}')" style="padding:6px 10px; font-size: 10px; white-space: nowrap; font-family:'Tajawal', sans-serif">موافقة نهائية</button>
-                        <button class="btn btn-sm btn-danger" onclick="ph21_adminReject('${o.id}')" style="padding:6px 10px; font-size: 10px; white-space: nowrap; font-family:'Tajawal', sans-serif">رفض</button>
+                        <button class="btn btn-sm btn-approve" onclick="ph43_adminFinalApprove('${o.id}')">✅ موافقة نهائية</button>
+                        <button class="btn btn-sm btn-reject" onclick="ph21_adminReject('${o.id}')">❌ رفض</button>
                       ` : ''}
                     </div>
                   </td>
