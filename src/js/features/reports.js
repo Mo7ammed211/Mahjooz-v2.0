@@ -23,8 +23,10 @@ class ReportsManager {
   // ─── جمع وتفصيل بيانات المبيعات الدوري والفرز حسب القسم ────────────
   async getSalesReport(startDate, endDate) {
     try {
+      const startMs = startDate.getTime();
+      const endMs = endDate.getTime();
+
       // 1. التصفية المباشرة من الذاكرة لسرعة الاستجابة وتفادي أخطاء الفهرسة
-      // 1. تصفية من الذاكرة للطلبات النشطة
       let activeList = [];
       if (AppData.orders && AppData.orders.length > 0) {
         activeList = AppData.orders.filter(o => {
@@ -57,7 +59,7 @@ class ReportsManager {
         }
       }
 
-      ordersList = [...activeList, ...archivedList];
+      let ordersList = [...activeList, ...archivedList];
       
       // 3. تصفية بديلة من السيرفر كاحتياطي في حال خلو الذاكرة بالكامل
       if (ordersList.length === 0) {
@@ -196,14 +198,23 @@ class ReportsManager {
   // ─── تقرير الأداء حسب الفئة ──────────────────────────────────────
   async getCategoryPerformance() {
     try {
-      const categories = await fsGetAll('categories');
+      const categories = AppData.cats || [];
+      const allOrders = [...(AppData.orders || []), ...(AppData.archivedOrders || [])];
+      
+      const ordersByCategory = {};
+      allOrders.forEach(o => {
+        const catId = o.category || o.catId;
+        if (catId) {
+          if (!ordersByCategory[catId]) ordersByCategory[catId] = [];
+          ordersByCategory[catId].push(o);
+        }
+      });
+
       const performance = [];
 
       for (const cat of categories) {
-        const activeOrders = await fsQuery('orders', 'category', '==', cat.id);
-        const archivedOrders = await fsQuery('archivedOrders', 'category', '==', cat.id);
-        const orders = [...activeOrders, ...archivedOrders];
-        const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || o.total || 0), 0);
+        const orders = ordersByCategory[cat.id] || [];
+        const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.totalAmount) || Number(o.total) || 0), 0);
         const avgRating = orders.length > 0 
           ? (orders.reduce((sum, o) => sum + (o.rating || 0), 0) / orders.length).toFixed(1)
           : 0;
@@ -228,15 +239,23 @@ class ReportsManager {
   // ─── تقرير أداء البائعين والمزودين ───────────────────────────────
   async getVendorPerformance() {
     try {
-      const vendors = await fsQuery('users', 'role', '==', 'vendor');
-      const providers = await fsQuery('users', 'role', '==', 'provider');
-      const allVendors = [...vendors, ...providers];
+      const allVendors = (AppData.users || []).filter(u => u.role === 'vendor' || u.role === 'provider');
+      const allOrders = [...(AppData.orders || []), ...(AppData.archivedOrders || [])];
+      
+      const ordersByVendor = {};
+      allOrders.forEach(o => {
+        const vid = o.providerUid || o.vendorId;
+        if (vid) {
+          if (!ordersByVendor[vid]) ordersByVendor[vid] = [];
+          ordersByVendor[vid].push(o);
+        }
+      });
+
       const vendorData = [];
 
       for (const vendor of allVendors) {
-        const activeOrders = await fsQuery('orders', 'providerUid', '==', vendor.id || vendor.uid);
-        const archivedOrders = await fsQuery('archivedOrders', 'providerUid', '==', vendor.id || vendor.uid);
-        const orders = [...activeOrders, ...archivedOrders];
+        const vid = vendor.id || vendor.uid;
+        const orders = ordersByVendor[vid] || [];
         const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
         const completedOrders = orders.filter(o => o.status === 'completed').length;
         const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
@@ -256,7 +275,7 @@ class ReportsManager {
           : null;
 
         vendorData.push({
-          vendorId: vendor.id || vendor.uid,
+          vendorId: vid,
           vendorName: vendor.displayName || vendor.name || 'مقدم خدمة مجهول',
           totalOrders: orders.length,
           completedOrders,
@@ -282,7 +301,18 @@ class ReportsManager {
   // ─── تقرير أداء العملاء ──────────────────────────────────────────
   async getCustomerAnalytics() {
     try {
-      const customers = await fsQuery('users', 'role', '==', 'customer');
+      const customers = (AppData.users || []).filter(u => u.role === 'customer');
+      const allOrders = [...(AppData.orders || []), ...(AppData.archivedOrders || [])];
+      
+      const ordersByCustomer = {};
+      allOrders.forEach(o => {
+        const cid = o.customerId;
+        if (cid) {
+          if (!ordersByCustomer[cid]) ordersByCustomer[cid] = [];
+          ordersByCustomer[cid].push(o);
+        }
+      });
+
       const analytics = {
         totalCustomers: customers.length,
         activeCustomers: 0,
@@ -299,9 +329,8 @@ class ReportsManager {
       };
 
       for (const customer of customers) {
-        const activeOrders = await fsQuery('orders', 'customerId', '==', customer.id || customer.uid);
-        const archivedOrders = await fsQuery('archivedOrders', 'customerId', '==', customer.id || customer.uid);
-        const orders = [...activeOrders, ...archivedOrders];
+        const cid = customer.id || customer.uid;
+        const orders = ordersByCustomer[cid] || [];
         const totalSpent = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
         const lastOrderDate = orders.length > 0 
           ? Math.max(...orders.map(o => {
@@ -330,7 +359,7 @@ class ReportsManager {
 
         if (orders.length > 0) {
           analytics.topCustomers.push({
-            customerId: customer.id || customer.uid,
+            customerId: cid,
             customerName: customer.name || customer.displayName || 'عميل مجهول',
             orderCount: orders.length,
             totalSpent,
