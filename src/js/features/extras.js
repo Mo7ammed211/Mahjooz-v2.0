@@ -1500,41 +1500,118 @@ function escAttr(s) { return escHtml(s); }
 // ───────────────────────────────────────────────────────
 const __originalLoadAllData = typeof loadAllData === 'function' ? loadAllData : null;
 async function loadAllData() {
-  const safe = async (col) => {
+  const safe = async (col, appDataKey, isDoc = false) => {
     try {
-      return await Promise.race([
-        fsGetAll(col),
-        new Promise(r => setTimeout(()=>r([]), 4500)),
+      const fetchPromise = isDoc ? db.doc(col).get() : fsGetAll(col);
+      const res = await Promise.race([
+        fetchPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]);
-    } catch(e) { return []; }
+      return isDoc ? (res && res.exists ? res.data() : { ar: {}, en: {} }) : res;
+    } catch(e) {
+      console.warn(`[Safe Loader] Failed to load ${col}:`, e);
+      if (appDataKey && AppData[appDataKey]) {
+        // Return existing data to avoid wiping out the state on temporary network glitch or slow loads
+        return AppData[appDataKey];
+      }
+      return isDoc ? { ar: {}, en: {} } : [];
+    }
   };
-  const [cats,cities,services,orders,users,ads,ratings,rr,wr,tr,banks,walletsArr,
-         stores,storeCats,storeProducts,banners,pages,svcSections,deliveryZones,deliveryRoutes,digitalCodes,
-         digitalStoreCats,digitalStores,digitalProducts,depositDocs,agreements,archivedOrders,broadcastNotifs,customerFeedback] = await Promise.all([
-    safe('categories'), safe('cities'), safe('services'),
-    safe('orders'), safe('users'), safe('ads'),
-    safe('ratings'), safe('recharge_requests'),
-    safe('withdrawal_requests'), safe('transactions'),
-    safe('bank_accounts'),
-    safe('wallets'),
-    // ✅ المتاجر — يجب تحميلها هنا لأن هذه النسخة تستبدل loadAllData في core.js
-    safe('stores'), safe('store_cats'), safe('store_products'),
-    safe('banners'), safe('pages'),
-    safe('service_sections'), safe('delivery_zones'), safe('delivery_routes'),
-    safe('digital_codes'),
-    safe('digital_store_cats'), safe('digital_stores'), safe('digital_products'),
-    safe('depositDocs'), safe('platform_agreements'), safe('archivedOrders'), safe('broadcastNotifications'), safe('customer_feedback')
+
+  const [
+    catsBookings, catsProfs, cities, services, orders, users, ads, ratings, rr, wr, tr,
+    banks, walletsArr,
+    stores, storeCats, storeProducts,
+    banners, pages,
+    svcSections, deliveryZones, deliveryRoutes,
+    digitalCodes, digitalStoreCats, digitalStores, digitalProducts,
+    depositDocs, agreements, archivedOrders, broadcastNotifs, customerFeedback,
+    rentalStores, rentalSubCats, rentalProducts,
+    catalogCats, catalogItems,
+    providerGroupsRaw,
+    pdbCatsRaw, pdbSubcatsRaw, pdbEntries,
+    ddbCatsRaw, ddbSubcatsRaw, ddbEntries,
+    deliveryGovernorates,
+    dictionary
+  ] = await Promise.all([
+    safe('categories', 'catsBookingsRaw'),
+    safe('professions_categories', 'catsProfsRaw'),
+    safe('cities', 'cities'),
+    safe('services', 'services'),
+    safe('orders', 'orders'),
+    safe('users', 'users'),
+    safe('ads', 'ads'),
+    safe('ratings', 'ratings'),
+    safe('recharge_requests', 'rechargeReqs'),
+    safe('withdrawal_requests', 'withdrawReqs'),
+    safe('transactions', 'transactions'),
+    safe('bank_accounts', 'bankAccounts'),
+    safe('wallets', 'walletsRaw'),
+    safe('stores', 'stores'),
+    safe('store_cats', 'storeCats'),
+    safe('store_products', 'storeProducts'),
+    safe('banners', 'banners'),
+    safe('pages', 'pages'),
+    safe('service_sections', 'svcSections'),
+    safe('delivery_zones', 'deliveryZones'),
+    safe('delivery_routes', 'deliveryRoutes'),
+    safe('digital_codes', 'digitalCodes'),
+    safe('digital_store_cats', 'digitalStoreCats'),
+    safe('digital_stores', 'digitalStores'),
+    safe('digital_products', 'digitalProducts'),
+    safe('depositDocs', 'depositDocs'),
+    safe('platform_agreements', 'agreements'),
+    safe('archivedOrders', 'archivedOrders'),
+    safe('broadcastNotifications', 'broadcastNotifications'),
+    safe('customer_feedback', 'customerFeedback'),
+    safe('rentalStores', 'rentalStores'),
+    safe('rentalSubCats', 'rentalSubCats'),
+    safe('rentalProducts', 'rentalProducts'),
+    safe('catalog_cats', 'catalogCats'),
+    safe('product_catalog', 'catalogItems'),
+    safe('provider_groups', 'providerGroupsRaw'),
+    safe('pdb_cats', 'pdbCatsRaw'),
+    safe('pdb_subcats', 'pdbSubcatsRaw'),
+    safe('pdb_entries', 'pdbEntries'),
+    safe('ddb_cats', 'ddbCatsRaw'),
+    safe('ddb_subcats', 'ddbSubcatsRaw'),
+    safe('ddb_entries', 'ddbEntries'),
+    safe('delivery_governorates', 'deliveryGovernorates'),
+    safe('settings/dictionary', 'dictionary', true)
   ]);
 
-  // Convert wallets array → { uid: walletDoc } map (each doc id IS the uid).
+  // Keep raw arrays for next load fallbacks
+  AppData.catsBookingsRaw = catsBookings;
+  AppData.catsProfsRaw = catsProfs;
+  AppData.walletsRaw = walletsArr;
+  AppData.providerGroupsRaw = providerGroupsRaw;
+  AppData.pdbCatsRaw = pdbCatsRaw;
+  AppData.pdbSubcatsRaw = pdbSubcatsRaw;
+  AppData.ddbCatsRaw = ddbCatsRaw;
+  AppData.ddbSubcatsRaw = ddbSubcatsRaw;
+
+  // Process categories
+  const cats = [
+    ...catsBookings.map(c => ({ ...c, section: 'bookings' })),
+    ...catsProfs.map(c => ({ ...c, section: c.section === 'bookings' ? 'professions' : (c.section || 'professions') }))
+  ];
+
+  // Convert wallets array → map
   const wallets = {};
   walletsArr.forEach(w => { if (w && w.id) wallets[w.id] = w; });
+
+  // Sort groups/cats
+  const providerGroups = (providerGroupsRaw || []).slice().sort((a,b)=>(a.order||99)-(b.order||99));
+  const pdbCats = (pdbCatsRaw || []).slice().sort((a,b)=>(a.order||99)-(b.order||99));
+  const pdbSubcats = (pdbSubcatsRaw || []).slice().sort((a,b)=>(a.order||99)-(b.order||99));
+  const ddbCats = (ddbCatsRaw || []).slice().sort((a,b)=>(a.order||99)-(b.order||99));
+  const ddbSubcats = (ddbSubcatsRaw || []).slice().sort((a,b)=>(a.order||99)-(b.order||99));
+
   Object.assign(AppData, {
     cats, cities, services, orders, users, ads, ratings,
     rechargeReqs: rr, withdrawReqs: wr, transactions: tr,
     regions: deliveryZones, bankAccounts: banks,
     wallets,
-    // ✅ بيانات المتاجر
     stores, storeCats, storeProducts,
     banners, pages,
     svcSections, deliveryZones, deliveryRoutes,
@@ -1544,10 +1621,19 @@ async function loadAllData() {
     agreements,
     archivedOrders,
     broadcastNotifications: broadcastNotifs,
-    customerFeedback
+    customerFeedback,
+    rentalStores, rentalSubCats, rentalProducts,
+    catalogCats, catalogItems,
+    providerGroups,
+    pdbCats, pdbSubcats, pdbEntries,
+    ddbCats, ddbSubcats, ddbEntries,
+    deliveryGovernorates,
+    dictionary
   });
+
+  State._dataLoaded = true;
   State._archivedOrdersLoaded = true; // Mark as loaded so dynamic view uses AppData directly
-  // ✅ Cache deliveryZones in localStorage so the signup page can read them without auth
+
   if (deliveryZones && deliveryZones.length > 0) {
     try { localStorage.setItem('mahjooz_zones_cache', JSON.stringify(deliveryZones)); } catch(e) {}
   }
