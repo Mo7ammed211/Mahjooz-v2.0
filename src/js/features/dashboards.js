@@ -101,52 +101,54 @@ window.renderAdmin = function () {
   if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
 
   const tabPermMap = {
-    dashboard: 'view_advanced_stats',
-    reports: 'view_reports',
-    advance_stats: 'view_advanced_stats',
-    advanced: 'view_advanced_stats',
-    driver_performance: 'view_reports',
-    sys_catalog: 'manage_services',
-    sys_bookings: 'manage_services',
-    sys_professions: 'manage_services',
-    sys_services: 'manage_services',
-    sys_stores: 'manage_stores',
-    sys_digital: 'manage_stores',
-    sys_offers: 'manage_coupons',
-    users: 'manage_users',
-    permissions: 'manage_users',
-    provider_groups: 'manage_users',
-    providers_database: 'manage_users',
-    drivers_database: 'manage_users',
-    wallet: 'view_wallets',
-    wallet_audit: 'view_wallets',
-    banks: 'manage_banks',
-    ads: 'manage_ads',
-    cms_banners: 'manage_cms',
-    signup_settings: 'manage_signup_settings',
-    login_settings: 'manage_login_settings',
-    regions: 'manage_regions',
-    delivery_pricing: 'manage_delivery_pricing',
-    delivery_addresses: 'manage_delivery_addresses',
-    cms_texts: 'manage_cms',
-    cms_pages: 'manage_cms',
-    ph17settings: 'manage_settings',
-    direct_routing: 'manage_direct_routing',
-    routing_timeouts: 'manage_routing_timeouts',
-    stalled_orders: 'manage_stalled_orders',
-    free_shipping: 'manage_free_shipping',
-    platform_activity: 'view_platform_activity',
-    error_dashboard: 'view_error_dashboard',
-    sys_visibility: 'manage_system_visibility',
-    orders: 'view_orders',
-    live_tracking: 'view_orders',
-    availability_monitor: 'view_orders',
-    deposit_docs: 'view_wallets',
-    archived_orders: 'view_orders',
-    platform_agreements: 'manage_settings',
-    audit_logs: 'view_wallets',
-    broadcast_notifications: 'manage_settings',
-    customer_feedback: 'manage_settings'
+    dashboard: 'dashboard',
+    reports: 'reports',
+    advance_stats: 'advance_stats',
+    advanced: 'advanced',
+    driver_performance: 'driver_performance',
+    sys_catalog: 'sys_catalog',
+    sys_bookings: 'sys_bookings',
+    sys_professions: 'sys_professions',
+    sys_services: 'sys_services',
+    sys_stores: 'sys_stores',
+    sys_digital: 'sys_digital',
+    sys_offers: 'sys_offers',
+    users: 'users',
+    permissions: 'permissions',
+    provider_groups: 'provider_groups',
+    providers_database: 'providers_database',
+    drivers_database: 'drivers_database',
+    wallet: 'wallet',
+    wallet_audit: 'wallet_audit',
+    banks: 'banks',
+    ads: 'ads',
+    cms_banners: 'cms_banners',
+    signup_settings: 'signup_settings',
+    login_settings: 'login_settings',
+    regions: 'regions',
+    delivery_pricing: 'delivery_pricing',
+    delivery_addresses: 'delivery_addresses',
+    cms_texts: 'cms_texts',
+    cms_pages: 'cms_pages',
+    ph17settings: 'ph17settings',
+    direct_routing: 'direct_routing',
+    routing_timeouts: 'routing_timeouts',
+    stalled_orders: 'stalled_orders',
+    free_shipping: 'free_shipping',
+    platform_activity: 'platform_activity',
+    error_dashboard: 'error_dashboard',
+    sys_visibility: 'sys_visibility',
+    orders: 'orders',
+    live_tracking: 'live_tracking',
+    availability_monitor: 'availability_monitor',
+    deposit_docs: 'deposit_docs',
+    archived_orders: 'archived_orders',
+    platform_agreements: 'platform_agreements',
+    audit_logs: 'audit_logs',
+    broadcast_notifications: 'broadcast_notifications',
+    customer_feedback: 'customer_feedback',
+    provider_svcs: 'provider_svcs',
+    staff_performance: 'staff_performance'
   };
 
   const hasPerm = (key) => {
@@ -2837,6 +2839,9 @@ function showDeliveryMap(orderId) {
   const customerAddr = order.customerAddr || order.address || order.deliveryAddress || '';
   const customerName = order.customerName || 'العميل';
   const orderNum     = order.orderId || order.id?.slice(-6) || '—';
+  
+  const lat = order.customerLat || order.lat || order.deliveryLat || null;
+  const lng = order.customerLng || order.lng || order.deliveryLng || null;
 
   // ── الـ Modal الخارجي ──
   openModal(`
@@ -2869,12 +2874,12 @@ function showDeliveryMap(orderId) {
             <div style="height:100%;background:#0d9488;border-radius:4px;animation:dlv-prog 1.5s ease-in-out infinite"></div>
           </div>
         </div>
-        <div id="dlv-leaflet-map" style="width:100%;height:100%;z-index:1"></div>
+        <div id="dlv-mapbox-map" style="width:100%;height:100%;z-index:1"></div>
       </div>
 
       <!-- شريط الإجراءات -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border)">
-        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="dlvMap_openExternal('${encodeURIComponent(customerAddr)}')">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="dlvMap_openExternal('${encodeURIComponent(customerAddr)}', ${lat}, ${lng})">
           🌍 فتح في خرائط Google
         </button>
         ${customerAddr ? `<button class="btn btn-sm" style="flex:1;background:rgba(13,148,136,0.12);color:#0d9488;border:1px solid rgba(13,148,136,0.3);border-radius:8px;font-weight:700" onclick="dlvMap_copyAddr('${escHtml(customerAddr).replace(/'/g,"\\'")}')">📋 نسخ العنوان</button>` : ''}
@@ -2885,67 +2890,72 @@ function showDeliveryMap(orderId) {
     </style>
   `);
 
-  // ── تحميل Leaflet إن لم يكن محملاً ──
-  function _initLeafletMap(lat, lng, label) {
+  function _initMapboxMap(lat, lng, label) {
     const loadingEl = document.getElementById('dlv-map-loading');
     if (loadingEl) loadingEl.style.display = 'none';
 
-    // تحقق من وجود Leaflet
-    if (!window.L) {
-      _showMapError('مكتبة الخرائط غير متاحة');
+    const token = window.MAPBOX_TOKEN;
+    if (!token) {
+      _showMapError('مفتاح Mapbox غير متوفر');
       return;
     }
 
-    const mapEl = document.getElementById('dlv-leaflet-map');
+    const mapEl = document.getElementById('dlv-mapbox-map');
     if (!mapEl) return;
 
     try {
-      // تدمير أي خريطة سابقة
+      // Destroy previous map instance if any
       if (window._dlvMapInstance) {
         try { window._dlvMapInstance.remove(); } catch(e) {}
         window._dlvMapInstance = null;
       }
 
-      const map = L.map('dlv-leaflet-map', {
-        center: [lat, lng],
-        zoom: 15,
-        zoomControl: true,
-        attributionControl: false
+      mapboxgl.accessToken = token;
+      const map = new mapboxgl.Map({
+        container: 'dlv-mapbox-map',
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [lng, lat],
+        zoom: 14
       });
 
-      // طبقة الخريطة (OpenStreetMap)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-      // أيقونة مخصصة للتوصيل
-      const deliveryIcon = L.divIcon({
-        className: '',
-        html: `<div style="
-          width:44px;height:44px;
-          background:linear-gradient(135deg,#0d9488,#0f766e);
-          border-radius:50% 50% 50% 0;
-          transform:rotate(-45deg);
-          border:3px solid #fff;
-          box-shadow:0 4px 15px rgba(13,148,136,0.5);
-          display:flex;align-items:center;justify-content:center;
-        "><span style="transform:rotate(45deg);font-size:18px;display:block;margin:auto;line-height:38px;text-align:center">📍</span></div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 44],
-        popupAnchor: [0, -48]
-      });
+      // Create Custom Pin element
+      const el = document.createElement('div');
+      el.style.width = '40px';
+      el.style.height = '40px';
+      el.style.background = 'linear-gradient(135deg,#0d9488,#0f766e)';
+      el.style.borderRadius = '50% 50% 50% 0';
+      el.style.transform = 'rotate(-45deg)';
+      el.style.border = '3px solid #fff';
+      el.style.boxShadow = '0 4px 15px rgba(13,148,136,0.5)';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
 
-      const marker = L.marker([lat, lng], { icon: deliveryIcon }).addTo(map);
-      marker.bindPopup(`
-        <div style="direction:rtl;text-align:right;font-family:inherit;min-width:160px">
-          <div style="font-weight:800;color:#0d9488;margin-bottom:4px">📦 موقع التوصيل</div>
-          <div style="font-size:12px;color:#333">${label}</div>
-        </div>
-      `).openPopup();
+      const pin = document.createElement('span');
+      pin.style.transform = 'rotate(45deg)';
+      pin.style.fontSize = '18px';
+      pin.style.display = 'block';
+      pin.innerText = '📍';
+      el.appendChild(pin);
 
+      const popup = new mapboxgl.Popup({ offset: 25 })
+        .setHTML(`
+          <div style="direction:rtl;text-align:right;font-family:inherit;min-width:160px;color:#000">
+            <div style="font-weight:800;color:#0d9488;margin-bottom:4px">📦 موقع التوصيل</div>
+            <div style="font-size:12px;color:#333">${label}</div>
+          </div>
+        `);
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map);
+
+      marker.togglePopup();
       window._dlvMapInstance = map;
-      setTimeout(() => map.invalidateSize(), 200);
+      setTimeout(() => map.resize(), 200);
     } catch(err) {
       console.error('Map init error:', err);
       _showMapError('حدث خطأ أثناء تحميل الخريطة');
@@ -2965,58 +2975,41 @@ function showDeliveryMap(orderId) {
 
   function _geocodeAndShow(address) {
     if (!address || address.trim() === '') {
-      // اليمن كنقطة مركزية افتراضية إن لم يكن عنوان
-      _initLeafletMap(15.5527, 48.5164, 'موقع غير محدد');
+      _initMapboxMap(15.5527, 48.5164, 'موقع غير محدد');
       return;
     }
-    // Nominatim geocoding (OpenStreetMap — مجاني)
+    
+    const token = window.MAPBOX_TOKEN;
     const query = encodeURIComponent(address + ', Yemen');
-    fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
-      headers: { 'Accept-Language': 'ar' }
-    })
+    fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&country=YE&language=ar`)
     .then(r => r.json())
     .then(data => {
-      if (data && data.length > 0) {
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        _initLeafletMap(lat, lng, address);
+      if (data && data.features && data.features.length > 0) {
+        const coords = data.features[0].geometry.coordinates;
+        _initMapboxMap(coords[1], coords[0], address);
       } else {
-        // لم نجد إحداثيات → اعرض الخريطة على مركز اليمن
-        _initLeafletMap(15.5527, 48.5164, address + ' (موقع تقريبي)');
+        _initMapboxMap(15.5527, 48.5164, address + ' (موقع تقريبي)');
       }
     })
     .catch(() => {
-      _showMapError('تعذّر تحديد الموقع على الخريطة');
+      _initMapboxMap(15.5527, 48.5164, address + ' (موقع تقريبي)');
     });
   }
 
-  // ── تحميل Leaflet ديناميكياً إن لم يكن موجوداً ──
-  function _ensureLeaflet(callback) {
-    if (window.L) { callback(); return; }
-    // CSS
-    if (!document.getElementById('leaflet-css')) {
-      const css = document.createElement('link');
-      css.id = 'leaflet-css';
-      css.rel = 'stylesheet';
-      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(css);
-    }
-    // JS
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = callback;
-    script.onerror = () => _showMapError('تعذّر تحميل مكتبة الخرائط');
-    document.head.appendChild(script);
+  function _ensureMapbox(callback) {
+    if (window.mapboxgl) { callback(); return; }
+    // Fallback: wait a bit
+    setTimeout(() => {
+      if (window.mapboxgl) callback();
+      else _showMapError('تعذّر تحميل مكتبة الخرائط');
+    }, 1000);
   }
 
   // ── تشغيل بعد فتح المودال ──
   setTimeout(() => {
-    _ensureLeaflet(() => {
-      // إذا كان في الطلب إحداثيات مباشرة
-      const lat = order.customerLat || order.lat || order.deliveryLat || null;
-      const lng = order.customerLng || order.lng || order.deliveryLng || null;
+    _ensureMapbox(() => {
       if (lat && lng) {
-        _initLeafletMap(parseFloat(lat), parseFloat(lng), customerAddr || 'موقع التوصيل');
+        _initMapboxMap(parseFloat(lat), parseFloat(lng), customerAddr || 'موقع التوصيل');
       } else {
         _geocodeAndShow(customerAddr);
       }
@@ -3025,10 +3018,14 @@ function showDeliveryMap(orderId) {
 }
 
 // مساعدات خريطة التوصيل
-window.dlvMap_openExternal = function(encodedAddr) {
-  const addr = decodeURIComponent(encodedAddr);
-  const q = encodeURIComponent(addr || 'اليمن');
-  window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
+window.dlvMap_openExternal = function(encodedAddr, lat, lng) {
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+  } else {
+    const addr = decodeURIComponent(encodedAddr);
+    const q = encodeURIComponent(addr || 'اليمن');
+    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
+  }
 };
 window.dlvMap_copyAddr = function(addr) {
   navigator.clipboard?.writeText(addr).then(() => toast('تم نسخ العنوان ✅','success')).catch(() => toast('تعذّر النسخ','error'));

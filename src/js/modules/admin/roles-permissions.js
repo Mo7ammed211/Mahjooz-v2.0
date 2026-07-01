@@ -262,42 +262,76 @@
   // ──────────────────────────────────────────────────────────────────
   // Extra admin-level perms a customer/staff can be granted.
   const PH17_EXTRA_PERMS = [
-    { k:'manage_users',      l:'إدارة المستخدمين (إضافة/تعليق/حذف)' },
-    { k:'manage_categories', l:'إدارة التصنيفات' },
-    { k:'manage_services',   l:'إدارة الخدمات' },
-    { k:'manage_regions',    l:'إدارة المناطق' },
-    { k:'manage_banks',      l:'إدارة الحسابات البنكية' },
-    { k:'manage_loyalty',    l:'إدارة برنامج الولاء' },
-    { k:'manage_currencies', l:'إدارة العملات وأسعار الصرف' },
-    { k:'manage_coupons',    l:'إدارة الكوبونات' },
-    { k:'view_advanced_stats', l:'عرض الإحصائيات المتقدّمة' },
-    { k:'manage_stores',     l:'إدارة المتاجر' },
-    { k:'manage_provider_svcs', l:'قبول/رفض خدمات المزودين' },
-    { k:'manage_bank_deposits', l:'إدارة طلبات الإيداع' },
-    { k:'manage_payment_methods', l:'إدارة طرق الدفع' },
-    { k:'manage_ads',        l:'إدارة الإعلانات' },
-    { k:'manage_cms',        l:'إدارة المحتوى والرسائل' },
-    { k:'manage_settings',   l:'إعدادات النظام العامة' },
-    { k:'manage_signup_settings', l:'تخصيص نموذج التسجيل وحقوله' },
-    { k:'manage_login_settings', l:'تعديل خيارات إعدادات الدخول' },
-    { k:'manage_delivery_pricing', l:'إدارة أسعار التوصيل بين المناطق' },
-    { k:'manage_delivery_addresses', l:'إدارة قاعدة عناوين التوصيل' },
-    { k:'manage_direct_routing', l:'إعدادات التوجيه المباشر للطلبات' },
-    { k:'manage_routing_timeouts', l:'إدارة أوقات قبول الطلبات التلقائية' },
-    { k:'manage_stalled_orders', l:'معالجة الطلبات المتوقفة' },
-    { k:'manage_free_shipping', l:'شروط التوصيل المجاني للأقسام' },
-    { k:'view_platform_activity', l:'عرض سجل نشاط المنصة' },
-    { k:'view_error_dashboard', l:'عرض لوحة الأخطاء التقنية والتحذيرات' },
-    { k:'manage_system_visibility', l:'التحكم الشامل في تفعيل/تعطيل أقسام المنصة' }
+    // 📊 الإحصائيات والتقارير
+    { k: 'dashboard',          l: '📊 لوحة التحكم: نظرة عامة' },
+    { k: 'reports',            l: '📊 لوحة التحكم: التقارير المالية' },
+    { k: 'advance_stats',      l: '📊 لوحة التحكم: التحليلات المتقدمة' },
+    { k: 'advanced',           l: '📊 لوحة التحكم: الإحصائيات المتقدمة' },
+    { k: 'driver_performance', l: '📊 لوحة التحكم: أداء المندوبين' },
+
+    // ⚙️ الأنظمة المستقلة
+    { k: 'sys_catalog',     l: '⚙️ الأنظمة: المنتجات والخدمات' },
+    { k: 'sys_bookings',    l: '⚙️ الأنظمة: نظام الحجوزات' },
+    { k: 'sys_professions', l: '⚙️ الأنظمة: نظام المهن' },
+    { k: 'sys_services',    l: '⚙️ الأنظمة: الخدمات العامة' },
+    { k: 'sys_stores',      l: '⚙️ الأنظمة: نظام المتاجر' },
+    { k: 'sys_digital',     l: '⚙️ الأنظمة: المتاجر الرقمية' },
+    { k: 'sys_offers',      l: '⚙️ الأنظمة: العروض والخصومات' },
+
+    // 📦 العمليات والطلبات
+    { k: 'orders',               l: '📦 العمليات: إدارة الطلبات' },
+    { k: 'archived_orders',      l: '📦 العمليات: أرشيف الطلبات' },
+    { k: 'live_tracking',        l: '📦 العمليات: التتبع المباشر' },
+    { k: 'availability_monitor', l: '📦 العمليات: مراقبة الإتاحة' },
+    { k: 'provider_svcs',        l: '📦 العمليات: خدمات المزودين (قبول/رفض)' },
+    { k: 'ads',                  l: '🎨 التسويق: الإعلانات والكوبونات' },
+    { k: 'customer_feedback',    l: '📝 العمليات: الاقتراحات والشكاوى' },
+
+    // 💰 الإدارة المالية
+    { k: 'wallet',              l: '💰 المالية: المحافظ الإلكترونية' },
+    { k: 'wallet_audit',        l: '💰 المالية: سجل تدقيق المحافظ' },
+    { k: 'deposit_docs',        l: '💰 المالية: مستندات وإيصالات الإيداع' },
+    { k: 'platform_agreements', l: '💰 المالية: اتفاقيات وعقود الشركاء' },
+    { k: 'audit_logs',          l: '💰 المالية: سجل العمليات الإدارية' },
+    { k: 'banks',               l: '💰 المالية: الحسابات البنكية' },
+
+    // 🎨 التسويق والمحتوى
+    { k: 'cms_banners',             l: '🎨 التسويق: إدارة رسائل ونصوص النظام' },
+    { k: 'broadcast_notifications', l: '🎨 التسويق: التنبيهات الجماعية' },
+
+    // 👥 إدارة المستخدمين
+    { k: 'users',              l: '👥 المستخدمين: عرض وإدارة حسابات المنصة' },
+    { k: 'provider_groups',    l: '👥 المستخدمين: فروع وتصنيفات المزودين' },
+    { k: 'providers_database', l: '👥 المستخدمين: قاعدة بيانات المزودين' },
+    { k: 'drivers_database',   l: '👥 المستخدمين: قاعدة بيانات المندوبين' },
+    { k: 'permissions',        l: '👥 المستخدمين: أدوار وصلاحيات الموظفين' },
+    { k: 'staff_performance',  l: '👥 المستخدمين: أداء الموظفين وتوزيع الأقسام' },
+
+    // 🔧 إعدادات النظام
+    { k: 'signup_settings',   l: '🔧 الإعدادات: تخصيص حقول نموذج التسجيل' },
+    { k: 'login_settings',    l: '🔧 الإعدادات: خيارات تسجيل الدخول' },
+    { k: 'regions',           l: '🔧 الإعدادات: إدارة المناطق الجغرافية' },
+    { k: 'delivery_pricing',  l: '🔧 الإعدادات: أسعار التوصيل بين المناطق' },
+    { k: 'delivery_addresses',l: '🔧 الإعدادات: قاعدة عناوين التوصيل' },
+    { k: 'cms_texts',         l: '🔧 الإعدادات: تخصيص النصوص والأيقونات' },
+    { k: 'cms_pages',         l: '🔧 الإعدادات: الصفحات الثابتة (الشروط/الخصوصية)' },
+    { k: 'ph17settings',      l: '🔧 الإعدادات: الإعدادات العامة (العملات/الولاء)' },
+    { k: 'direct_routing',    l: '🔧 الإعدادات: التوجيه المباشر وتوزيع الطلبات تلقائياً' },
+    { k: 'routing_timeouts',  l: '🔧 الإعدادات: إدارة أوقات قبول الطلبات التلقائية' },
+    { k: 'stalled_orders',    l: '🔧 الإعدادات: معالجة الطلبات المتوقفة' },
+    { k: 'free_shipping',     l: '🔧 الإعدادات: شروط التوصيل المجاني للأقسام' },
+    { k: 'platform_activity', l: '🔧 الإعدادات: عرض سجل نشاط المنصة الشامل' },
+    { k: 'error_dashboard',   l: '🔧 الإعدادات: عرض لوحة الأخطاء التقنية' },
+    { k: 'sys_visibility',    l: '🔧 الإعدادات: التحكم الشامل في تفعيل/تعطيل أقسام المنصة' }
   ];
   const PH17_PERM_LABELS = {
-    view_orders: 'عرض الطلبات',
-    edit_orders: 'تعديل/قبول الطلبات',
-    create_users: 'إنشاء مستخدمين',
-    chat_customers: 'دردشة مع العملاء',
-    view_wallets: 'عرض المحافظ',
-    adjust_wallets: 'تعديل المحافظ (شحن/خصم)',
-    view_reports: 'عرض التقارير'
+    view_orders: '👁️ إجراءات: عرض وتفاصيل الطلبات في القوائم',
+    edit_orders: '✍️ إجراءات: تعديل وتحديث حالة الطلبات',
+    create_users: '👤 إجراءات: إنشاء حسابات المستخدمين يدوياً',
+    chat_customers: '💬 إجراءات: الدردشة والمراسلة مع العملاء',
+    view_wallets: '👁️ إجراءات: عرض تفاصيل وأرصدة المحافظ',
+    adjust_wallets: '💵 إجراءات: تعديل أرصدة المحافظ (شحن/خصم)',
+    view_reports: '👁️ إجراءات: عرض وتصدير التقارير المالية'
   };
   PH17_EXTRA_PERMS.forEach(p => PH17_PERM_LABELS[p.k] = p.l);
 
@@ -311,6 +345,15 @@
     if (user.role === 'admin') return true;
     if (user.role !== 'staff') return false; // الصلاحيات تمنح فقط للموظفين
     const perms = user.permissions || {};
+    
+    // Fallback logic for action-based permissions
+    if (key === 'view_orders' && perms.orders) return true;
+    if (key === 'edit_orders' && perms.orders) return true;
+    if (key === 'create_users' && perms.users) return true;
+    if (key === 'view_wallets' && perms.wallet) return true;
+    if (key === 'adjust_wallets' && perms.wallet) return true;
+    if (key === 'view_reports' && perms.reports) return true;
+    
     return !!perms[key];
   };
   window.userHasPerm = window.ph17_hasPerm;

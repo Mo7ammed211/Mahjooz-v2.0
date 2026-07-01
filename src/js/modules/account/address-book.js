@@ -58,7 +58,16 @@ window.ph41_showAddressBook = async function () {
                 ${escHtml(a.label)}
                 ${a.isDefault ? '<span class="badge badge-teal" style="font-size:10px;margin-right:6px">افتراضي</span>' : ''}
               </div>
-              <div class="ph41-addr-text">${escHtml(a.address)}</div>
+              <div class="ph41-addr-text">
+                ${escHtml(a.address)}
+                ${a.lat && a.lng ? `
+                  <div style="margin-top:6px">
+                    <a href="https://www.google.com/maps/search/?api=1&query=${a.lat},${a.lng}" target="_blank" class="btn btn-xs btn-secondary" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:6px;text-decoration:none">
+                      🌍 فتح في خرائط Google
+                    </a>
+                  </div>
+                ` : ''}
+              </div>
               ${a.subzoneName ? `<div style="font-size:11px;color:var(--primary);font-weight:600;margin-top:2px">📍 ${escHtml(a.govName||'')} ${a.govName?'›':''} ${escHtml(a.zoneName||'')} ${a.zoneName?'›':''} ${escHtml(a.subzoneName)}</div>` : ''}
             </div>
             <div class="ph41-addr-actions">
@@ -114,6 +123,10 @@ window.ph41_showAddressBook = async function () {
         <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">العنوان التفصيلي *</label>
           <textarea class="form-control" id="ph41-new-address" placeholder="المدينة، الحي، الشارع، رقم البناية..." rows="2" style="resize:vertical"></textarea>
+          <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="ph41_toggleMap('new')">📍 تحديد الموقع الجغرافي على الخريطة</button>
+          <div id="ph41-new-map-container" style="display:none; margin-top:8px; height:220px; border-radius:12px; overflow:hidden; border: 1px solid var(--border);"></div>
+          <input type="hidden" id="ph41-new-lat">
+          <input type="hidden" id="ph41-new-lng">
         </div>
         <div class="form-group" style="grid-column:1/-1; margin-top:8px;">
           <label class="form-label" style="font-weight:700;">📸 أرفق صور للمنزل / باب المنزل (اختياري)</label>
@@ -139,6 +152,8 @@ window.ph41_saveNewAddress = async function () {
   const label     = document.getElementById('ph41-new-label')?.value.trim();
   const type      = document.getElementById('ph41-new-type')?.value || 'home';
   const address   = document.getElementById('ph41-new-address')?.value.trim();
+  const lat       = document.getElementById('ph41-new-lat')?.value ? parseFloat(document.getElementById('ph41-new-lat').value) : null;
+  const lng       = document.getElementById('ph41-new-lng')?.value ? parseFloat(document.getElementById('ph41-new-lng').value) : null;
   const isDefault = document.getElementById('ph41-new-default')?.checked || false;
   const govEl     = document.getElementById('ph41-new-gov');
   const zoneEl    = document.getElementById('ph41-new-zone');
@@ -175,6 +190,8 @@ window.ph41_saveNewAddress = async function () {
       isDefault,
       govId, govName, zoneId, zoneName, subzoneId, subzoneName,
       pics: window.ph41_tempAddressPics || [],
+      lat,
+      lng,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     window.ph41_tempAddressPics = [];
@@ -271,6 +288,13 @@ window.ph41_editAddress = function (addrId) {
       <label class="form-label">العنوان التفصيلي</label>
       <textarea class="form-control" id="ph41-edit-address" rows="3" style="resize:vertical">${escHtml(addr.address || '')}</textarea>
     </div>
+    <div class="form-group" style="grid-column:1/-1">
+      <input type="hidden" id="ph41-edit-addr-id" value="${addrId}">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="ph41_toggleMap('edit')">📍 تعديل الموقع الجغرافي على الخريطة</button>
+      <div id="ph41-edit-map-container" style="display:none; margin-top:8px; height:220px; border-radius:12px; overflow:hidden; border: 1px solid var(--border);"></div>
+      <input type="hidden" id="ph41-edit-lat" value="${addr.lat || ''}">
+      <input type="hidden" id="ph41-edit-lng" value="${addr.lng || ''}">
+    </div>
     <div class="form-group" style="margin-top:12px;">
       <label class="form-label" style="font-weight:700;">📸 أرفق صور للمنزل / باب المنزل (اختياري)</label>
       <div class="signup-pics-upload-zone" onclick="document.getElementById('ph41-edit-pics-input').click()">
@@ -297,6 +321,8 @@ window.ph41_saveEditAddress = async function (addrId) {
   const label   = document.getElementById('ph41-edit-label')?.value.trim();
   const type    = document.getElementById('ph41-edit-type')?.value;
   const address = document.getElementById('ph41-edit-address')?.value.trim();
+  const lat     = document.getElementById('ph41-edit-lat')?.value ? parseFloat(document.getElementById('ph41-edit-lat').value) : null;
+  const lng     = document.getElementById('ph41-edit-lng')?.value ? parseFloat(document.getElementById('ph41-edit-lng').value) : null;
   if (!address) { toast('العنوان التفصيلي مطلوب', 'error'); return; }
   const govEl     = document.getElementById('ph41-edit-gov');
   const zoneEl    = document.getElementById('ph41-edit-zone');
@@ -316,6 +342,8 @@ window.ph41_saveEditAddress = async function (addrId) {
       label, type, address,
       govId, govName, zoneId, zoneName, subzoneId, subzoneName,
       pics: window.ph41_tempEditAddressPics || [],
+      lat,
+      lng,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     window.ph41_tempEditAddressPics = [];
@@ -345,7 +373,16 @@ window.ph41_renderAddressSelector = function (addrs) {
             <div class="ph41-bk-info">
               <div class="ph41-bk-label">${escHtml(a.label)}</div>
               ${a.subzoneName ? `<div style="font-size:11px;color:var(--primary);font-weight:700;margin-bottom:2px">📍 ${escHtml(a.govName||'')} ${a.govName?'›':''} ${escHtml(a.zoneName||'')} ${a.zoneName?'›':''} ${escHtml(a.subzoneName)}</div>` : ''}
-              <div class="ph41-bk-text">${escHtml(a.address)}</div>
+              <div class="ph41-bk-text">
+                ${escHtml(a.address)}
+                ${a.lat && a.lng ? `
+                  <div style="margin-top:6px">
+                    <a href="https://www.google.com/maps/search/?api=1&query=${a.lat},${a.lng}" target="_blank" class="btn btn-xs btn-secondary" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:6px;text-decoration:none">
+                      🌍 فتح في خرائط Google
+                    </a>
+                  </div>
+                ` : ''}
+              </div>
             </div>
             <span class="ph41-bk-radio">${i === selIdx ? '🔵' : '⚪'}</span>
           </div>`).join('')}
@@ -513,4 +550,113 @@ window.ph41_removeAddressPic = function(mode, idx, btn) {
       b.setAttribute('onclick', `ph41_removeAddressPic('${mode}', ${i}, this)`);
     });
   }
+};
+
+// ───────────────────────────────────────────────────────
+// MAPBOX INTEGRATION FOR ADDRESS PICKING
+// ───────────────────────────────────────────────────────
+window.ph41_toggleMap = function(mode) {
+  const container = document.getElementById(`ph41-${mode}-map-container`);
+  if (!container) return;
+  
+  if (container.style.display === 'block') {
+    container.style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'block';
+  
+  // Default coordinates (Sana'a, Yemen as default center)
+  let lat = 15.35;
+  let lng = 44.20;
+  
+  if (mode === 'edit') {
+    const latVal = document.getElementById('ph41-edit-lat')?.value;
+    const lngVal = document.getElementById('ph41-edit-lng')?.value;
+    if (latVal && lngVal) {
+      lat = parseFloat(latVal);
+      lng = parseFloat(lngVal);
+    }
+  } else {
+    // Attempt current user geolocation for new addresses
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        ph41_initMapbox(mode, lat, lng);
+      }, () => {
+        ph41_initMapbox(mode, lat, lng);
+      });
+      return;
+    }
+  }
+  
+  ph41_initMapbox(mode, lat, lng);
+};
+
+window.ph41_initMapbox = function(mode, lat, lng) {
+  const token = window.MAPBOX_TOKEN;
+  if (!token) {
+    toast('مفتاح Mapbox غير متوفر', 'error');
+    return;
+  }
+  
+  mapboxgl.accessToken = token;
+  const containerId = `ph41-${mode}-map-container`;
+  
+  // Destroy previous map instance if any to prevent memory leaks and duplicate maps
+  if (window[`_ph41_${mode}MapInstance`]) {
+    try { window[`_ph41_${mode}MapInstance`].remove(); } catch(e){}
+    window[`_ph41_${mode}MapInstance`] = null;
+  }
+  
+  const map = new mapboxgl.Map({
+    container: containerId,
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [lng, lat],
+    zoom: 13
+  });
+  
+  window[`_ph41_${mode}MapInstance`] = map;
+  
+  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  
+  const marker = new mapboxgl.Marker({
+    draggable: true
+  })
+  .setLngLat([lng, lat])
+  .addTo(map);
+  
+  document.getElementById(`ph41-${mode}-lat`).value = lat;
+  document.getElementById(`ph41-${mode}-lng`).value = lng;
+  
+  function onDragEnd() {
+    const lngLat = marker.getLngLat();
+    document.getElementById(`ph41-${mode}-lat`).value = lngLat.lat;
+    document.getElementById(`ph41-${mode}-lng`).value = lngLat.lng;
+    
+    // Reverse geocoding to suggest address name
+    fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lngLat.lng},${lngLat.lat}.json?access_token=${token}&language=ar`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.features && data.features.length > 0) {
+          const placeName = data.features[0].place_name;
+          const addrTextarea = document.getElementById(`ph41-${mode}-address`);
+          if (addrTextarea && !addrTextarea.value.trim()) {
+            addrTextarea.value = placeName;
+          }
+        }
+      }).catch(err => console.log('Reverse geocoding error:', err));
+  }
+  
+  marker.on('dragend', onDragEnd);
+  
+  map.on('click', (e) => {
+    marker.setLngLat(e.lngLat);
+    document.getElementById(`ph41-${mode}-lat`).value = e.lngLat.lat;
+    document.getElementById(`ph41-${mode}-lng`).value = e.lngLat.lng;
+  });
+  
+  // Resize to fix container layout bugs in modal
+  setTimeout(() => map.resize(), 300);
 };
