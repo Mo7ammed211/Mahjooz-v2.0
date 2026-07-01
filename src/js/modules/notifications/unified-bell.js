@@ -164,11 +164,13 @@
     }
 
     const showSectionTitle = sourcesToShow.length > 1;
+    // When a specific source is filtered, show ALL items; only slice to 8 in 'all' view
+    const isSpecificFilter = _activeFilter !== 'all';
     bodyEl.innerHTML = `<div class="ub-body">
       ${sourcesToShow.map(id => {
         const src = SOURCES[id];
-        const sliced = src.items.slice(0, 8);
-        const extra = src.items.length - 8;
+        const sliced = isSpecificFilter ? src.items : src.items.slice(0, 8);
+        const extra = isSpecificFilter ? 0 : (src.items.length - 8);
         return `
         <div class="ub-section">
           ${showSectionTitle ? `
@@ -181,7 +183,10 @@
           ${extra > 0 ? `
           <div class="ub-more" data-filter-id="${id}" onclick="setUBFilter('${id}')">
             + ${extra} إشعار آخر — اضغط للعرض
-          </div>` : ''}
+          </div>` : (isSpecificFilter && src.items.length > 0 ? `
+          <div class="ub-back" onclick="setUBFilter('all')">
+            ← عودة لعرض الكل
+          </div>` : '')}
         </div>`;
       }).join('')}
     </div>`;
@@ -643,6 +648,13 @@
       transition: background 0.15s; border-top: 1px solid rgba(255,255,255,0.04);
     }
     .ub-more:hover { background: rgba(124,58,237,0.15); color: #c4b5fd; }
+    .ub-back {
+      padding: 8px 14px; font-size: 11px; font-weight: 700;
+      color: #64748b; text-align: center; cursor: pointer;
+      background: rgba(255,255,255,0.02);
+      transition: background 0.15s; border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .ub-back:hover { background: rgba(255,255,255,0.06); color: #94a3b8; }
 
     /* ════ Empty ════ */
     .ub-empty { padding: 40px 20px; text-align: center; color: var(--text-muted, #9ca3af); }
