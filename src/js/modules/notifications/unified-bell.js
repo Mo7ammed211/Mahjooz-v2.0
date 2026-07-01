@@ -310,11 +310,15 @@
     const target = document.getElementById('nav-notif-target');
     if (!target) return;
 
+    const u = (typeof State !== 'undefined' ? State : null)?.currentUser;
+    const hasErrorDashboardPerm = u && (u.role === 'admin' || (u.role === 'staff' && typeof ph17_hasPerm === 'function' && ph17_hasPerm(u, 'error_dashboard')));
+
     const wrap = document.createElement('div');
     wrap.id = 'unified-bell-wrap';
     wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;position:relative';
     wrap.innerHTML = `
       <!-- Errors icon -->
+      ${hasErrorDashboardPerm ? `
       <div id="ub-error-wrap" style="position:relative;display:inline-flex;align-items:center">
         <button id="ub-error-btn" onclick="toggleErrorPanel(event)" title="سجل الأخطاء التقنية" aria-label="الأخطاء التقنية">
           <svg class="ub-bell-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -324,7 +328,7 @@
           <span id="ub-error-badge" style="display:none;"></span>
         </button>
         <div id="ub-error-panel" class="ub-panel ub-error-panel-pos"></div>
-      </div>
+      </div>` : ''}
 
       <!-- Main notifications bell -->
       <div style="position:relative;display:inline-flex;align-items:center">
@@ -340,7 +344,7 @@
 
     target.appendChild(wrap);
     _updateBadge();
-    _updateErrorBadge();
+    if (hasErrorDashboardPerm) _updateErrorBadge();
 
     // Close panels on outside click
     // Use composedPath() to capture the original click target BEFORE any innerHTML replacement
