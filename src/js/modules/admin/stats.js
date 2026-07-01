@@ -520,20 +520,21 @@ function __legacy_renderAdmin() {
 const ALL_PERMS = ['view_orders','edit_orders','create_users','chat_customers','view_wallets','adjust_wallets','view_reports'];
 
 function renderAdminPermissions() {
-  // Show ALL users, not just staff/admin — admin can grant perms to anyone.
-  const users = (AppData.users || []).slice();
-  const roleLabel = { admin:'مدير', staff:'موظف', vendor:'صاحب خدمة', driver:'مندوب', customer:'عميل', guest:'زائر', cs:'موظف' };
-  const roleBadge = { admin:'badge-rose', staff:'badge-purple', vendor:'badge-teal', driver:'badge-gold', customer:'badge-teal', guest:'badge-teal', cs:'badge-purple' };
+  // Only show staff and admin users — permissions are only relevant for these roles.
+  const users = (AppData.users || []).filter(u => u.role === 'staff' || u.role === 'admin');
+  const roleLabel = { admin: 'مدير', staff: 'موظف' };
+  const roleBadge = { admin: 'badge-rose', staff: 'badge-purple' };
 
-  // Use the FULL permissions list (16) — base 7 + extras 9 from phase 17.
   const ALL = (typeof ph17_allPerms === 'function')
     ? ph17_allPerms()
     : ALL_PERMS.slice();
   const PLABEL = (typeof PH17_PERM_LABELS !== 'undefined' && PH17_PERM_LABELS) || {};
   const labelOf = (k) => PLABEL[k] || (typeof t === 'function' ? t('perm_'+k) : k);
 
-  // Optional role filter (default = all)
-  const roleFilter = (window.__permRoleFilter || 'all');
+  // Role filter among staff/admin only
+  const roleFilter = (window.__permRoleFilter === 'admin' || window.__permRoleFilter === 'staff')
+    ? window.__permRoleFilter
+    : 'all';
   const searchQuery = (State.adminSearch || '').toLowerCase();
   const filteredByRole = roleFilter === 'all' ? users : users.filter(u => u.role === roleFilter);
   const filtered = filteredByRole.filter(u =>
@@ -545,23 +546,25 @@ function renderAdminPermissions() {
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <h2>الصلاحيات — كل المستخدمين</h2>
-        <input type="text" class="form-control" id="admin-permissions-search" placeholder="ابحث بالاسم أو البريد أو الدور..." value="${State.adminSearch || ''}" oninput="State.adminSearch = this.value; render();" style="width:300px">
+        <h2>🔑 إدارة الصلاحيات — الموظفون والمدراء</h2>
+        <input type="text" class="form-control" id="admin-permissions-search" placeholder="ابحث بالاسم أو البريد..." value="${State.adminSearch || ''}" oninput="State.adminSearch = this.value; render();" style="width:280px">
       </div>
-      <button class="btn btn-primary" onclick="ph17_openCreateUser ? ph17_openCreateUser() : showAddUserModal()">إضافة مستخدم</button>
+      <button class="btn btn-primary" onclick="ph17_openCreateUser ? ph17_openCreateUser() : showAddUserModal()">➕ إضافة موظف</button>
     </div>
-    <p style="color:var(--text-muted);margin-bottom:14px">يمكنك منح أيّ صلاحية لأيّ مستخدم بغضّ النظر عن دوره. المدير يملك كل الصلاحيات تلقائياً.</p>
+    <p style="color:var(--text-muted);margin-bottom:14px">
+      تُعرض هنا فقط حسابات الموظفين والمدراء. المدير يملك كل الصلاحيات تلقائياً ولا يمكن تعديلها.
+    </p>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      ${['all','admin','staff','vendor','driver','customer'].map(r => `
+      ${['all','admin','staff'].map(r => `
         <button class="btn btn-sm ${roleFilter===r?'btn-primary':'btn-secondary'}"
           onclick="window.__permRoleFilter='${r}'; render();">
-          ${r==='all'?'الكل':roleLabel[r]||r}
+          ${r==='all'?'الكل — موظفون ومدراء':roleLabel[r]||r}
         </button>`).join('')}
     </div>
 
     <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:16px;margin-bottom:20px">
-      <h3 style="margin-bottom:12px;font-size:15px">الصلاحيات المتاحة (${ALL.length})</h3>
+      <h3 style="margin-bottom:12px;font-size:15px">الصلاحيات المتاحة للتفويض (${ALL.length})</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
         ${ALL.map(p => `
           <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary)">
@@ -576,8 +579,8 @@ function renderAdminPermissions() {
           <tr>
             <th>الاسم</th>
             <th>الدور</th>
-            <th>البريد</th>
-            <th>عدد الصلاحيات الفعّالة</th>
+            <th>البريد الإلكتروني</th>
+            <th>الصلاحيات الفعّالة</th>
             <th>إجراءات</th>
           </tr>
         </thead>
@@ -585,7 +588,7 @@ function renderAdminPermissions() {
           ${filtered.length ? filtered.map(u => {
             const perms = u.role === 'admin'
               ? Object.fromEntries(ALL.map(p=>[p,true]))
-              : (u.permissions || (typeof DEFAULT_PERMS!=='undefined' ? (DEFAULT_PERMS[u.role]||{}) : {}));
+              : (u.permissions || {});
             const active = ALL.filter(p => perms[p]).length;
             return `<tr>
               <td style="font-weight:600">${escHtml(u.name||'—')}</td>
@@ -594,12 +597,12 @@ function renderAdminPermissions() {
               <td><strong style="color:var(--accent-purple)">${active}</strong> / ${ALL.length}</td>
               <td>
                 ${u.role === 'admin'
-                  ? '<span style="color:var(--text-muted);font-size:12px">— كل الصلاحيات —</span>'
-                  : `<button class="btn btn-sm btn-primary" onclick="showPermsModal('${u.id}')">تعديل الصلاحيات</button>`}
+                  ? '<span style="color:var(--text-muted);font-size:12px">— صلاحيات كاملة بشكل تلقائي —</span>'
+                  : `<button class="btn btn-sm btn-primary" onclick="showPermsModal('${u.id}')">🔑 تعديل الصلاحيات</button>`}
               </td>
             </tr>`;
           }).join('') : `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">
-            لا يوجد مستخدمون بهذا التصنيف.
+            ${searchQuery ? 'لا توجد نتائج للبحث.' : 'لا يوجد موظفون أو مدراء مسجّلون حتى الآن.'}
           </td></tr>`}
         </tbody>
       </table>
