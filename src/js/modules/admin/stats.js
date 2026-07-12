@@ -812,6 +812,7 @@ function showAddUserModal() {
           <option value="vendor">صاحب خدمة</option>
           <option value="driver">مندوب</option>
           <option value="staff">موظف</option>
+          <option value="admin">مدير</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">البريد</label><input class="form-control" id="nu-email" type="email" placeholder="user@example.com"></div>
