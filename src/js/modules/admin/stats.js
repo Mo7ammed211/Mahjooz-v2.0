@@ -802,6 +802,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // ─── Add user modal (manual creation by admin) ─────────
 function showAddUserModal() {
   const regions = AppData.regions || [];
+  const u = State.currentUser;
+  const isAdmin = u && u.role === 'admin';
+
   openModal(`
     <div class="modal-header"><h2 class="modal-title">${t('add_user_manual')}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="form-grid-2">
@@ -809,10 +812,14 @@ function showAddUserModal() {
       <div class="form-group"><label class="form-label">الدور</label>
         <select class="form-control" id="nu-role">
           <option value="customer">عميل</option>
-          <option value="vendor">صاحب خدمة</option>
-          <option value="driver">مندوب</option>
-          <option value="staff">موظف</option>
-          <option value="admin">مدير</option>
+          <option value="provider">صاحب مهنة (سباك، كهربائي، إلخ)</option>
+          <option value="vendor-services">مزود خدمات وحجوزات (فنادق، قاعات، إلخ)</option>
+          <option value="vendor-store">مزود متاجر (مأكولات، صيدليات، إلخ)</option>
+          <option value="driver">مندوب توصيل</option>
+          ${isAdmin ? `
+            <option value="staff">موظف عمليات</option>
+            <option value="admin">مدير نظام</option>
+          ` : ''}
         </select>
       </div>
       <div class="form-group"><label class="form-label">البريد</label><input class="form-control" id="nu-email" type="email" placeholder="user@example.com"></div>
@@ -834,7 +841,7 @@ function showAddUserModal() {
 
 async function submitAddUser() {
   const name = document.getElementById('nu-name').value.trim();
-  const role = document.getElementById('nu-role').value;
+  const selectedRole = document.getElementById('nu-role').value;
   const email = document.getElementById('nu-email').value.trim().toLowerCase();
   const password = document.getElementById('nu-password').value;
   const phone = document.getElementById('nu-phone').value.trim();
@@ -852,12 +859,28 @@ async function submitAddUser() {
   try {
     const cred = await sa.createUserWithEmailAndPassword(email, password);
     const uid = cred.user.uid;
-    await db.collection('users').doc(uid).set({
+
+    let role = selectedRole;
+    let vendorType = null;
+    if (selectedRole === 'vendor-services') {
+      role = 'vendor';
+      vendorType = 'services';
+    } else if (selectedRole === 'vendor-store') {
+      role = 'vendor';
+      vendorType = 'store';
+    }
+
+    const userData = {
       name, email, phone, role, regionId,
       permissions: DEFAULT_PERMS[role] || {},
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       createdBy: State.currentUser.uid,
-    });
+    };
+    if (vendorType) {
+      userData.vendorType = vendorType;
+    }
+
+    await db.collection('users').doc(uid).set(userData);
     if (balance > 0) await creditWallet(uid, balance, 'رصيد افتتاحي - من المدير');
     await sa.signOut().catch(() => {});
     closeModal();

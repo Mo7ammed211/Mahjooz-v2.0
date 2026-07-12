@@ -507,39 +507,13 @@
   // Removed renderAdminUsers override. Functionality integrated into dashboards.js
 
 
-  // Quick add-user modal (simple — admin enters email, name, role).
+  // Quick add-user modal — delegates to showAddUserModal which has full role logic and access control.
   window.ph17_openCreateUser = function () {
-    openModal(`
-      <div class="modal-header">
-        <h2 class="modal-title">➕ إضافة مستخدم جديد</h2>
-        <button class="modal-close" onclick="closeModal()">✕</button>
-      </div>
-      <div class="form-group"><label class="form-label">الاسم</label><input class="form-control" id="ph17-cu-name" placeholder="الاسم الكامل"></div>
-      <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-control" id="ph17-cu-email" type="email" placeholder="user@example.com"></div>
-      <div class="form-group"><label class="form-label">الجوال</label><input class="form-control" id="ph17-cu-phone" placeholder="9665xxxxxxxx"></div>
-      <div class="form-group"><label class="form-label">الدور</label>
-        <select class="form-control" id="ph17-cu-role">
-          <option value="customer">عميل</option>
-          <option value="staff">موظف</option>
-          <option value="vendor">صاحب خدمة</option>
-          <option value="driver">مندوب</option>
-          <option value="admin">مدير</option>
-        </select>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="ph17_saveCreateUser()">💾 إنشاء الحساب</button>`);
+    if (typeof showAddUserModal === 'function') {
+      showAddUserModal();
+    }
   };
-  window.ph17_saveCreateUser = async function () {
-    const name = document.getElementById('ph17-cu-name').value.trim();
-    const email = document.getElementById('ph17-cu-email').value.trim();
-    const phone = document.getElementById('ph17-cu-phone').value.trim();
-    const role = document.getElementById('ph17-cu-role').value;
-    if (!name || !email) { toast('الاسم والبريد مطلوبان','error'); return; }
-    await fsAdd('users', { name, email, phone, role, suspended:false, permissions:{}, createdAt: new Date() });
-    closeModal();
-    toast('تم إنشاء الحساب ✅','success');
-    if (typeof loadAllData === 'function') await loadAllData();
-    await render();
-  };
+  // ph17_saveCreateUser is no longer needed — submitAddUser() handles all creation.
 
   // ──────────────────────────────────────────────────────────────────
   // 7) Admin Settings tab — currencies + loyalty toggle
