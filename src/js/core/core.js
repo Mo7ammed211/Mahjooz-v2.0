@@ -2063,19 +2063,49 @@ window.ph_renderVisibleRegionsPicker = function(selectedIds = [], storeRegionId 
   const regions = (AppData.regions || []).filter(r => r.id !== storeRegionId && r.active !== false);
   if (!regions.length) return '';
   const sel = selectedIds || [];
+  const selCount = sel.filter(id => regions.some(r => r.id === id)).length;
+  // Unique id to avoid conflicts when multiple pickers are on the same page
+  const uid = 'vrp_' + Math.random().toString(36).slice(2, 7);
+  const isOpen = selCount > 0; // start open only if there are pre-selected regions
+
   return `
   <div class="form-group" style="margin-top:14px;">
-    <label class="form-label" style="display:flex;align-items:center;gap:6px;">
-      🌍 <span>مناطق التغطية الإضافية</span>
-      <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-inline-start:4px;">(يظهر للعملاء في هذه المناطق أيضاً)</span>
-    </label>
-    <div style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border);">
+    <!-- Accordion Header -->
+    <div id="${uid}_header" onclick="(function(){
+      var body=document.getElementById('${uid}_body');
+      var arrow=document.getElementById('${uid}_arrow');
+      var isNowOpen = body.style.display==='none'||body.style.display==='';
+      body.style.display = isNowOpen ? 'flex' : 'none';
+      arrow.style.transform = isNowOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    })()"
+    style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:${isOpen ? '12px 12px 0 0' : '12px'};cursor:pointer;user-select:none;transition:border-radius 0.2s;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">🌍</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text-main);">مناطق التغطية الإضافية</span>
+        <span style="font-size:11px;color:var(--text-muted);">(يظهر للعملاء في هذه المناطق أيضاً)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="${uid}_count" style="font-size:11px;font-weight:700;background:${selCount > 0 ? 'rgba(124,77,255,0.15)' : 'rgba(255,255,255,0.06)'};color:${selCount > 0 ? 'var(--primary)' : 'var(--text-muted)'};border:1px solid ${selCount > 0 ? 'rgba(124,77,255,0.3)' : 'var(--border)'};border-radius:20px;padding:2px 9px;transition:all 0.2s;">
+          ${selCount > 0 ? selCount + ' مناطق' : 'لا يوجد'}
+        </span>
+        <span id="${uid}_arrow" style="font-size:14px;color:var(--text-muted);transition:transform 0.25s;transform:${isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};">▼</span>
+      </div>
+    </div>
+    <!-- Accordion Body -->
+    <div id="${uid}_body" style="display:${isOpen ? 'flex' : 'none'};flex-direction:column;gap:4px;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;">
       ${regions.map(r => {
         const checked = sel.includes(r.id);
-        return `<label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;background:${checked ? 'rgba(124,77,255,0.08)' : 'transparent'};transition:background 0.15s;" onmouseover="this.style.background='rgba(124,77,255,0.05)'" onmouseout="this.style.background=this.querySelector('input').checked?'rgba(124,77,255,0.08)':'transparent'">
+        return `<label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;background:${checked ? 'rgba(124,77,255,0.08)' : 'transparent'};transition:background 0.15s;"
+          onmouseover="if(!this.querySelector('input').checked)this.style.background='rgba(255,255,255,0.04)'"
+          onmouseout="this.style.background=this.querySelector('input').checked?'rgba(124,77,255,0.08)':'transparent'">
           <input type="checkbox" class="ph-visible-region-cb" value="${r.id}" ${checked ? 'checked' : ''}
             style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;"
-            onchange="this.closest('label').style.background=this.checked?'rgba(124,77,255,0.08)':'transparent'">
+            onchange="
+              this.closest('label').style.background=this.checked?'rgba(124,77,255,0.08)':'transparent';
+              var cnt=document.querySelectorAll('#${uid}_body .ph-visible-region-cb:checked').length;
+              var el=document.getElementById('${uid}_count');
+              if(el){el.textContent=cnt>0?cnt+' مناطق':'لا يوجد';el.style.color=cnt>0?'var(--primary)':'var(--text-muted)';el.style.background=cnt>0?'rgba(124,77,255,0.15)':'rgba(255,255,255,0.06)';el.style.borderColor=cnt>0?'rgba(124,77,255,0.3)':'var(--border)';}
+            ">
           <span style="font-size:13px;font-weight:600;">${typeof escHtml === 'function' ? escHtml(r.name) : r.name}</span>
         </label>`;
       }).join('')}
