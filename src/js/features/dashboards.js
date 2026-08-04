@@ -1701,7 +1701,7 @@ window.saveNewSvc = async function() {
 
   showLoader();
   try {
-    const svcId = await fsAdd('services', { catId, sectionId, name, provider, desc, price, commission, tax, finalPrice, order, assignedVendors, multiVendors, icon: '🔷', commonIssues: issues, status: 'active', stockStatus, alertBadge, createdAt: new Date() });
+    const svcId = await fsAdd('services', { catId, sectionId, name, provider, desc, price, commission, tax, finalPrice, order, assignedVendors, multiVendors, icon: '🔷', commonIssues: issues, status: 'active', stockStatus, alertBadge, visibleRegions: (typeof ph_collectVisibleRegions === 'function' ? ph_collectVisibleRegions() : []), createdAt: new Date() });
 
     const addToOffers = document.getElementById('svc-add-to-offers')?.checked;
     if (addToOffers && typeof ph_saveOfferFromSource === 'function') {
@@ -3565,6 +3565,7 @@ window._svcModalBody = function(s = {}, section = null) {
           <textarea class="form-control" id="svc-issues" rows="3" placeholder="مثال:&#10;تسريب مياه&#10;كسر في الانبوب">${(s.commonIssues||[]).join('\n')}</textarea>
         </div>
       ` : ''}
+      <div style="margin-top:12px">${typeof ph_renderVisibleRegionsPicker === 'function' ? ph_renderVisibleRegionsPicker(s.visibleRegions || [], s.regionId || null) : ''}</div>
     </div>
 
     <!-- 4. مواعيد العمل -->
@@ -3715,6 +3716,7 @@ function _collectSvcForm(existingImages = [], existingVideoUrl = '') {
     sectionId: document.getElementById('svc-section-id')?.value || null,
     images,
     videoUrl,
+    visibleRegions: typeof ph_collectVisibleRegions === 'function' ? ph_collectVisibleRegions() : [],
     adminAlerts: typeof window.getAdminAlerts === 'function' ? window.getAdminAlerts() : [],
   };
 }

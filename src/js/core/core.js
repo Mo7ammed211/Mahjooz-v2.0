@@ -2017,6 +2017,17 @@ window.ph_matchesLocation = function(item, userRegionId, userGovId, parentStore 
   // Determine the user's effective govId (from explicit selection or derived from picked region)
   const effectiveGovId = userGovId || (userRegionId ? govOfRegion(userRegionId) : null);
 
+  // 0. visibleRegions — explicit cross-region delivery support
+  //    If the item (or its parent store) declares a visibleRegions list that
+  //    includes the user's region, show it regardless of regionId.
+  const _checkVisibleRegions = (vr) => {
+    if (!vr || !vr.length) return false;
+    if (userRegionId && vr.includes(userRegionId)) return true;
+    if (effectiveGovId && vr.some(rId => govOfRegion(rId) === effectiveGovId)) return true;
+    return false;
+  };
+  if (_checkVisibleRegions(item.visibleRegions)) return true;
+
   // 1. Item has its own regionId → match exactly or at gov level
   if (item.regionId) {
     if (userRegionId) return item.regionId === userRegionId;
@@ -2031,6 +2042,7 @@ window.ph_matchesLocation = function(item, userRegionId, userGovId, parentStore 
   // 3. Inherit location from parent store
   const store = parentStore || (item.storeId ? (AppData.stores || []).find(s => s.id === item.storeId) : null);
   if (store) {
+    if (_checkVisibleRegions(store.visibleRegions)) return true;
     if (store.regionId) {
       if (userRegionId) return store.regionId === userRegionId;
       return govOfRegion(store.regionId) === effectiveGovId;
@@ -2042,4 +2054,51 @@ window.ph_matchesLocation = function(item, userRegionId, userGovId, parentStore 
 
   // 4. No location constraint defined on item → show to everyone
   return true;
+};
+
+// ─── Visible Regions Picker ──────────────────────────────────────────────────
+// Renders a multi-checkbox picker for selecting additional coverage regions.
+// Exclude storeRegionId from the list (it's already the main region).
+window.ph_renderVisibleRegionsPicker = function(selectedIds = [], storeRegionId = null) {
+  const regions = (AppData.regions || []).filter(r => r.id !== storeRegionId && r.active !== false);
+  if (!regions.length) return '';
+  const sel = selectedIds || [];
+  return `
+  <div class="form-group" style="margin-top:14px;">
+    <label class="form-label" style="display:flex;align-items:center;gap:6px;">
+      🌍 <span>مناطق التغطية الإضافية</span>
+      <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-inline-start:4px;">(يظهر للعملاء في هذه المناطق أيضاً)</span>
+    </label>
+    <div style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border);">
+      ${regions.map(r => {
+        const checked = sel.includes(r.id);
+        return `<label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;background:${checked ? 'rgba(124,77,255,0.08)' : 'transparent'};transition:background 0.15s;" onmouseover="this.style.background='rgba(124,77,255,0.05)'" onmouseout="this.style.background=this.querySelector('input').checked?'rgba(124,77,255,0.08)':'transparent'">
+          <input type="checkbox" class="ph-visible-region-cb" value="${r.id}" ${checked ? 'checked' : ''}
+            style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;"
+            onchange="this.closest('label').style.background=this.checked?'rgba(124,77,255,0.08)':'transparent'">
+          <span style="font-size:13px;font-weight:600;">${typeof escHtml === 'function' ? escHtml(r.name) : r.name}</span>
+        </label>`;
+      }).join('')}
+    </div>
+  </div>`;
+};
+
+// Collect checked visible region IDs from the picker rendered by ph_renderVisibleRegionsPicker.
+window.ph_collectVisibleRegions = function() {
+  return Array.from(document.querySelectorAll('.ph-visible-region-cb:checked')).map(cb => cb.value);
+};
+
+// Returns a stylish badge HTML if the item is visible to the user via visibleRegions
+// (i.e. the user is NOT in the item's home region, but the item explicitly covers theirs).
+window.ph_getDeliveryBadge = function(item, userRegionId) {
+  if (!userRegionId || !item || !item.visibleRegions || !item.visibleRegions.length) return '';
+  // Only show badge when user is in a visibleRegion, NOT in the item's own region
+  if (item.regionId && item.regionId === userRegionId) return '';
+  if (!item.visibleRegions.includes(userRegionId)) return '';
+  const userRegName  = ((AppData.regions || []).find(r => r.id === userRegionId) || {}).name || '';
+  const homeRegName  = ((AppData.regions || []).find(r => r.id === item.regionId)  || {}).name || (item.regionId ? '—' : '');
+  const homeHtml     = homeRegName ? ` · موقعه <strong>${typeof escHtml === 'function' ? escHtml(homeRegName) : homeRegName}</strong>` : '';
+  return `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.07));color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:20px;padding:3px 10px;margin-top:5px;">
+    🚚 يوصل لـ <strong>${typeof escHtml === 'function' ? escHtml(userRegName) : userRegName}</strong>${homeHtml}
+  </div>`;
 };

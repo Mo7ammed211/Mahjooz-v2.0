@@ -215,6 +215,7 @@ window.ph_showAddRentalStoreModal = function (catId) {
       </div>
     </div>
     <div class="form-group"><label class="form-label">الوصف (اختياري)</label><textarea class="form-control" id="rst-desc" rows="3"></textarea></div>
+    <div id="rst-visible-regions-wrap">${typeof ph_renderVisibleRegionsPicker === 'function' ? ph_renderVisibleRegionsPicker([]) : ''}</div>
     <button class="btn btn-primary btn-block" onclick="ph_saveRentalStore('${catId}')">💾 حفظ المتجر</button>`);
 };
 
@@ -249,6 +250,7 @@ window.ph_saveRentalStore = async function (catId) {
         close: document.getElementById('rst-close')?.value || '22:00',
         days: Array.from(document.querySelectorAll('#rst-days input:checked')).map(i=>i.value)
       },
+      visibleRegions: typeof ph_collectVisibleRegions === 'function' ? ph_collectVisibleRegions() : [],
       hasAddress: false,
       storeAddressId: null,
       storeAddressName: null,
@@ -291,6 +293,7 @@ window.ph_showEditRentalStoreModal = function (storeId) {
       </div>
     </div>
     <div class="form-group"><label class="form-label">الوصف (اختياري)</label><textarea class="form-control" id="rst-desc" rows="3">${escHtml(s.desc || '')}</textarea></div>
+    <div id="rst-visible-regions-wrap">${typeof ph_renderVisibleRegionsPicker === 'function' ? ph_renderVisibleRegionsPicker(s.visibleRegions || []) : ''}</div>
     <button class="btn btn-primary btn-block" onclick="ph_updateRentalStore('${storeId}')">💾 تحديث المتجر</button>`);
 };
 
@@ -313,6 +316,7 @@ window.ph_updateRentalStore = async function (storeId) {
         close: document.getElementById('rst-close')?.value || '22:00',
         days: Array.from(document.querySelectorAll('#rst-days input:checked')).map(i=>i.value)
       },
+      visibleRegions: typeof ph_collectVisibleRegions === 'function' ? ph_collectVisibleRegions() : [],
       hasAddress: false,
       storeAddressId: null,
       storeAddressName: null,
@@ -714,19 +718,20 @@ window.ph_rentalRenderCatPage = function(catId) {
                 ${s.bannerBase64 ? `<img src="${s.bannerBase64}" class="ph43-store-banner">` : `<div class="ph43-store-banner-placeholder">${s.icon||'🏪'}</div>`}
                 <div class="ph43-store-card-avatar">${s.logoBase64 ? `<img src="${s.logoBase64}">` : (s.icon||'🏪')}</div>
               </div>
-              <div class="ph43-store-card-body">
-                <div class="ph43-store-name">${escHtml(s.name)}</div>
-                ${s.hasAddress && s.storeAddressName ? `
-                  <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--primary);font-weight:700;margin-top:4px;margin-bottom:6px">
-                    <span>📍</span>
-                    <span>${escHtml(s.storeRegionName || '')} - ${escHtml(s.storeAddressName)}</span>
-                  </div>
-                ` : ''}
-                ${s.desc ? `<div class="ph43-store-desc">${escHtml(s.desc)}</div>` : ''}
-                ${ph_getRentalStoreStatusHtml(s)}
-                <div class="ph43-store-meta"><span>📦 ${prodCount} منتج متاح</span></div>
-                <button class="btn btn-primary ph43-store-btn">عرض المتجر ←</button>
-              </div>
+            <div class="ph43-store-card-body">
+              <div class="ph43-store-name">${escHtml(s.name)}</div>
+              ${s.hasAddress && s.storeAddressName ? `
+                <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--primary);font-weight:700;margin-top:4px;margin-bottom:6px">
+                  <span>📍</span>
+                  <span>${escHtml(s.storeRegionName || '')} - ${escHtml(s.storeAddressName)}</span>
+                </div>
+              ` : ''}
+              ${typeof ph_getDeliveryBadge === 'function' ? ph_getDeliveryBadge(s, State.currentUser?.regionId) : ''}
+              ${s.desc ? `<div class="ph43-store-desc">${escHtml(s.desc)}</div>` : ''}
+              ${ph_getRentalStoreStatusHtml(s)}
+              <div class="ph43-store-meta"><span>📦 ${prodCount} منتج متاح</span></div>
+              <button class="btn btn-primary ph43-store-btn">عرض المتجر ←</button>
+            </div>
             </div>`;
           }).join('')}
         </div>` : `

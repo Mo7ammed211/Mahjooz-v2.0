@@ -1353,7 +1353,9 @@ window.ph43_filterStores = function () {
 };
 
 function ph43_renderStoreListItem(s) {
-  const prodCount = (AppData.storeProducts||[]).filter(p=>p.storeId===s.id&&p.active!==false).length;
+  const prodCount    = (AppData.storeProducts||[]).filter(p=>p.storeId===s.id&&p.active!==false).length;
+  const userRegionId = State.currentUser?.regionId || null;
+  const delivBadge   = typeof ph_getDeliveryBadge === 'function' ? ph_getDeliveryBadge(s, userRegionId) : '';
   return `
   <div class="ph43-store-list-item" onclick="navigate('store',{storeId:'${s.id}'})">
     <div class="ph43-list-logo">
@@ -1362,6 +1364,7 @@ function ph43_renderStoreListItem(s) {
     <div class="ph43-list-info">
       <div class="ph43-list-name">${escHtml(s.name)}</div>
       ${s.desc ? `<div class="ph43-list-desc">${escHtml(s.desc.length>65?s.desc.substring(0,65)+'…':s.desc)}</div>` : ''}
+      ${delivBadge}
       <div class="ph43-list-meta">
         <span>📦 ${prodCount} منتج</span>
         ${s.deliveryTime ? `<span>🚗 ${escHtml(s.deliveryTime)}</span>` : ''}
@@ -1452,7 +1455,9 @@ function ph43_renderSlideshowView(stores) {
 }
 
 function ph43_renderStoreCard(s) {
-  const prodCount = (AppData.storeProducts || []).filter(p => p.storeId === s.id && p.active !== false).length;
+  const prodCount      = (AppData.storeProducts || []).filter(p => p.storeId === s.id && p.active !== false).length;
+  const userRegionId   = State.currentUser?.regionId || null;
+  const delivBadge     = typeof ph_getDeliveryBadge === 'function' ? ph_getDeliveryBadge(s, userRegionId) : '';
   return `
   <div class="ph43-store-card" onclick="navigate('store',{storeId:'${s.id}'})">
     <div class="ph43-store-card-header">
@@ -1466,6 +1471,7 @@ function ph43_renderStoreCard(s) {
     <div class="ph43-store-card-body">
       <div class="ph43-store-name">${escHtml(s.name)}</div>
       ${s.desc ? `<div class="ph43-store-desc">${escHtml(s.desc)}</div>` : ''}
+      ${delivBadge}
       <div class="ph43-store-meta">
         <span>📦 ${prodCount} منتج</span>
         ${s.deliveryTime ? `<span>🚗 ${escHtml(s.deliveryTime)}</span>` : '<span>🚗 توصيل متاح</span>'}
@@ -2028,12 +2034,13 @@ window.ph43_showAddStoreModal = function () {
     </div>
     ${_renderVendorPicker()}
     <div class="form-group">
-      <label class="form-label">📍 المنطقة</label>
-      <select class="form-control" id="st-region">
+      <label class="form-label">📍 منطقة المتجر الأصلية</label>
+      <select class="form-control" id="st-region" onchange="document.getElementById('st-visible-regions-wrap').innerHTML = typeof ph_renderVisibleRegionsPicker==='function' ? ph_renderVisibleRegionsPicker([], this.value) : ''">
         <option value="">🌍 جميع المناطق</option>
         ${regions.map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('')}
       </select>
     </div>
+    <div id="st-visible-regions-wrap">${typeof ph_renderVisibleRegionsPicker==='function' ? ph_renderVisibleRegionsPicker([]) : ''}</div>
     <div class="form-group" style="margin-top:12px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
         <input type="checkbox" id="st-has-address" onchange="document.getElementById('st-address-wrap').style.display = this.checked ? 'block' : 'none'" style="width:16px;height:16px;accent-color:var(--primary)">
@@ -2106,12 +2113,13 @@ window.ph43_showEditStoreModal = function (storeId) {
     <div class="form-group"><label class="form-label">🚗 وقت التوصيل</label><input class="form-control" id="st-delivery" value="${escAttr(s.deliveryTime || '')}"></div>
     ${_renderVendorPicker(s.assignedVendors || (s.vendorId ? [s.vendorId] : []))}
     <div class="form-group">
-      <label class="form-label">📍 المنطقة</label>
-      <select class="form-control" id="st-region">
+      <label class="form-label">📍 منطقة المتجر الأصلية</label>
+      <select class="form-control" id="st-region" onchange="document.getElementById('st-visible-regions-wrap').innerHTML = typeof ph_renderVisibleRegionsPicker==='function' ? ph_renderVisibleRegionsPicker([], this.value) : ''">
         <option value="">🌍 جميع المناطق</option>
         ${regions.map(r => `<option value="${r.id}"${s.regionId === r.id ? ' selected' : ''}>${escHtml(r.name)}</option>`).join('')}
       </select>
     </div>
+    <div id="st-visible-regions-wrap">${typeof ph_renderVisibleRegionsPicker==='function' ? ph_renderVisibleRegionsPicker(s.visibleRegions || [], s.regionId) : ''}</div>
     <div class="form-group" style="margin-top:12px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
         <input type="checkbox" id="st-has-address" ${s.hasAddress ? 'checked' : ''} onchange="document.getElementById('st-address-wrap').style.display = this.checked ? 'block' : 'none'" style="width:16px;height:16px;accent-color:var(--primary)">
@@ -2137,26 +2145,27 @@ window.ph43_showEditStoreModal = function (storeId) {
 };
 
 window.ph43_updateStore = async function (storeId) {
-  const name         = document.getElementById('st-name')?.value.trim();
-  const icon         = document.getElementById('st-icon')?.value.trim() || '🏪';
-  const desc         = document.getElementById('st-desc')?.value.trim();
-  const deliveryTime = document.getElementById('st-delivery')?.value.trim();
+  const name           = document.getElementById('st-name')?.value.trim();
+  const icon           = document.getElementById('st-icon')?.value.trim() || '🏪';
+  const desc           = document.getElementById('st-desc')?.value.trim();
+  const deliveryTime   = document.getElementById('st-delivery')?.value.trim();
   const assignedVendors = Array.from(document.querySelectorAll('.svc-vendor-cb:checked')).map(cb=>cb.value);
-  const regionId     = document.getElementById('st-region')?.value || null;
-  const hasAddress   = document.getElementById('st-has-address')?.checked || false;
-  const addressEl    = document.getElementById('st-address-id');
-  const storeAddressId = hasAddress ? (addressEl?.value || null) : null;
-  const selectedOption = addressEl?.options[addressEl.selectedIndex];
+  const regionId       = document.getElementById('st-region')?.value || null;
+  const visibleRegions = typeof ph_collectVisibleRegions === 'function' ? ph_collectVisibleRegions() : [];
+  const hasAddress     = document.getElementById('st-has-address')?.checked || false;
+  const addressEl      = document.getElementById('st-address-id');
+  const storeAddressId   = hasAddress ? (addressEl?.value || null) : null;
+  const selectedOption   = addressEl?.options[addressEl.selectedIndex];
   const storeAddressName = hasAddress ? (selectedOption?.dataset?.name || null) : null;
-  const storeRegionName = hasAddress ? (selectedOption?.dataset?.zone || null) : null;
-  const active       = document.getElementById('st-active')?.checked !== false;
-  const logoBase64   = document.getElementById('st-logo-b64')?.value || null;
+  const storeRegionName  = hasAddress ? (selectedOption?.dataset?.zone || null) : null;
+  const active         = document.getElementById('st-active')?.checked !== false;
+  const logoBase64     = document.getElementById('st-logo-b64')?.value || null;
 
   if (!name) { toast('أدخل اسم المتجر', 'error'); return; }
   if (!assignedVendors.length) { toast('يجب اختيار مزود واحد على الأقل لهذا المتجر', 'error'); return; }
   showLoader();
   try {
-    await fsUpdate('stores', storeId, { name, icon, desc, deliveryTime, assignedVendors, regionId, active, logoBase64, hasAddress, storeAddressId, storeAddressName, storeRegionName });
+    await fsUpdate('stores', storeId, { name, icon, desc, deliveryTime, assignedVendors, regionId, visibleRegions, active, logoBase64, hasAddress, storeAddressId, storeAddressName, storeRegionName });
     await ph43_reloadStoreData();
     hideLoader(); closeModal();
     toast('✅ تم التعديل', 'success');

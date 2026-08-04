@@ -647,6 +647,7 @@ function renderServiceCard(s) {
         <div class="service-name">${s.name}</div>
         ${s.sku ? `<div style="display:inline-block;font-family:monospace;font-size:10.5px;font-weight:700;background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.2);border-radius:4px;padding:1px 6px;margin-top:3px;letter-spacing:0.5px;">#${s.sku}</div>` : ''}
         ${stockChipHtml ? `<div style="margin-top:4px">${stockChipHtml}</div>` : ''}
+        ${typeof ph_getDeliveryBadge === 'function' ? ph_getDeliveryBadge(s, State.currentUser?.regionId) : ''}
       </div>
     </div>
     ${s.desc?`<p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;line-height:1.6">${s.desc}</p>`:''}
