@@ -507,108 +507,145 @@
       { key:'promo',   icon:'🏷️', label:'ترويج' },
     ];
 
+    // ── Summary chip for the accordion header ──
+    const stockCfg  = STOCK_STATUSES.find(x => x.key === status) || STOCK_STATUSES[0];
+    const hasAlert  = !!(ab.type && ab.text);
+    const isNonDefault = status !== 'available' || hasAlert;
+    // start open only when something non-trivial is configured
+    const isOpen = isNonDefault;
+
+    const summaryChip = isNonDefault
+      ? `<span style="font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;background:rgba(124,77,255,0.15);color:var(--primary);border:1px solid rgba(124,77,255,0.3);border-radius:20px;padding:2px 10px;">
+          ${stockCfg.icon} ${stockCfg.label}${hasAlert ? ` · ${ab.icon||'🏷️'} ${ab.text.length > 18 ? ab.text.slice(0,18)+'…' : ab.text}` : ''}
+        </span>`
+      : `<span style="font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);border-radius:20px;padding:2px 10px;">
+          ✅ متاح · بلا شارة
+        </span>`;
+
     return `
-    <div class="ia-admin-section" id="ia-admin-section" style="padding: 12px; border-radius: 12px; margin-top: 10px;">
-      <div class="ia-admin-section-title" style="font-size: 13px; margin-bottom: 8px;">🔔 التنبيهات وحالة التوفر</div>
+    <div style="margin-top:14px;" id="ia-admin-section">
+      <!-- Accordion Header -->
+      <div id="ia_acc_header" onclick="(function(){
+        var body=document.getElementById('ia_acc_body');
+        var arrow=document.getElementById('ia_acc_arrow');
+        var hdr=document.getElementById('ia_acc_header');
+        var isNowOpen=body.style.display==='none'||body.style.display==='';
+        body.style.display=isNowOpen?'block':'none';
+        arrow.style.transform=isNowOpen?'rotate(180deg)':'rotate(0deg)';
+        hdr.style.borderRadius=isNowOpen?'12px 12px 0 0':'12px';
+      })()"
+      style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.25);border-radius:${isOpen ? '12px 12px 0 0' : '12px'};cursor:pointer;user-select:none;transition:border-radius 0.2s,background 0.2s;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:17px;">🔔</span>
+          <span style="font-size:13px;font-weight:800;color:var(--primary);">التنبيهات وحالة التوفر</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${summaryChip}
+          <span id="ia_acc_arrow" style="font-size:13px;color:var(--text-muted);transition:transform 0.25s;transform:${isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};">▼</span>
+        </div>
+      </div>
 
-      <table class="ia-admin-table">
-        <tbody>
-          <!-- ── حالة التوفر ── -->
-          <tr>
-            <td class="ia-table-label">📦 حالة التوفر</td>
-            <td>
-              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                ${STOCK_STATUSES.map(st => `
-                  <button type="button"
-                    class="ia-status-btn-compact${status === st.key ? ' selected' : ''}"
-                    data-status="${st.key}"
-                    style="${status === st.key ? `--selected-color:${st.color};--selected-rgb:${st.rgb}` : ''}"
-                    onclick="ph48_selectStatus('${st.key}','${st.color}','${st.rgb}')">
-                    <span style="font-size: 13px;">${st.icon}</span>
-                    <span>${st.label}</span>
-                  </button>
-                `).join('')}
-              </div>
-              <input type="hidden" id="ia-stock-status" value="${status}">
-            </td>
-          </tr>
-
-          <!-- ── الشارة التنبيهية ── -->
-          <tr>
-            <td class="ia-table-label">🏷️ شارة التنبيه</td>
-            <td>
-              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                ${badgeTypes.map(bt => `
-                  <button type="button"
-                    class="ia-badge-type-btn-compact${ab.type === bt.key ? ' sel-'+bt.key : ''}"
-                    data-btype="${bt.key}"
-                    onclick="ph48_selectBadgeType('${bt.key}')">
-                    <span style="font-size: 12px;">${bt.icon}</span> ${bt.label}
-                  </button>
-                `).join('')}
-                <button type="button"
-                  class="ia-badge-type-btn-compact${!ab.type ? ' sel-info' : ''}"
-                  style="color:#64748b"
-                  onclick="ph48_selectBadgeType('')">
-                  🚫 بلا شارة
-                </button>
-              </div>
-              <input type="hidden" id="ia-badge-type" value="${ab.type || ''}">
-            </td>
-          </tr>
-
-          <!-- ── نصوص سريعة ── -->
-          <tr>
-            <td class="ia-table-label">⚡ نصوص جاهزة</td>
-            <td>
-              <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                ${QUICK_TEXTS.map(qt => `
-                  <button type="button"
-                    class="ia-quick-chip-compact${ab.text === qt.text ? ' selected' : ''}"
-                    onclick="ph48_pickQuickText('${escAttr(qt.icon)}','${escAttr(qt.text)}','${qt.type}')">
-                    ${qt.icon} ${qt.text}
-                  </button>
-                `).join('')}
-                <button type="button" class="ia-quick-chip-compact" onclick="document.getElementById('ia-badge-text').focus()">
-                  ✏️ نص مخصص
-                </button>
-              </div>
-            </td>
-          </tr>
-
-          <!-- ── الشارة المخصصة ── -->
-          <tr>
-            <td class="ia-table-label">✍️ الشارة والرمز</td>
-            <td>
-              <div style="display: flex; gap: 8px; align-items: center; max-width: 500px;">
-                <div style="width: 70px; flex-shrink: 0;">
-                  <input class="form-control form-control-sm" id="ia-badge-icon" value="${escAttr(ab.icon||'')}" placeholder="⚡" style="text-align:center; font-size:14px; height: 32px; padding: 2px 4px;">
+      <!-- Accordion Body -->
+      <div id="ia_acc_body" style="display:${isOpen ? 'block' : 'none'};border:1px solid rgba(99,102,241,0.25);border-top:none;border-radius:0 0 12px 12px;background:linear-gradient(135deg,rgba(99,102,241,0.04),rgba(139,92,246,0.03));padding:12px 14px;">
+        <table class="ia-admin-table">
+          <tbody>
+            <!-- ── حالة التوفر ── -->
+            <tr>
+              <td class="ia-table-label">📦 حالة التوفر</td>
+              <td>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  ${STOCK_STATUSES.map(st => `
+                    <button type="button"
+                      class="ia-status-btn-compact${status === st.key ? ' selected' : ''}"
+                      data-status="${st.key}"
+                      style="${status === st.key ? `--selected-color:${st.color};--selected-rgb:${st.rgb}` : ''}"
+                      onclick="ph48_selectStatus('${st.key}','${st.color}','${st.rgb}')">
+                      <span style="font-size: 13px;">${st.icon}</span>
+                      <span>${st.label}</span>
+                    </button>
+                  `).join('')}
                 </div>
-                <div style="flex: 1;">
-                  <input class="form-control form-control-sm" id="ia-badge-text" value="${escAttr(ab.text||'')}" placeholder="مثال: كمية محدودة — أطلب الآن!" oninput="ph48_updatePreview()" style="font-size:12px; height: 32px; padding: 2px 8px;">
+                <input type="hidden" id="ia-stock-status" value="${status}">
+              </td>
+            </tr>
+
+            <!-- ── الشارة التنبيهية ── -->
+            <tr>
+              <td class="ia-table-label">🏷️ شارة التنبيه</td>
+              <td>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  ${badgeTypes.map(bt => `
+                    <button type="button"
+                      class="ia-badge-type-btn-compact${ab.type === bt.key ? ' sel-'+bt.key : ''}"
+                      data-btype="${bt.key}"
+                      onclick="ph48_selectBadgeType('${bt.key}')">
+                      <span style="font-size: 12px;">${bt.icon}</span> ${bt.label}
+                    </button>
+                  `).join('')}
+                  <button type="button"
+                    class="ia-badge-type-btn-compact${!ab.type ? ' sel-info' : ''}"
+                    style="color:#64748b"
+                    onclick="ph48_selectBadgeType('')">
+                    🚫 بلا شارة
+                  </button>
                 </div>
-              </div>
-            </td>
-          </tr>
+                <input type="hidden" id="ia-badge-type" value="${ab.type || ''}">
+              </td>
+            </tr>
 
-          <!-- ── تاريخ انتهاء الشارة ── -->
-          <tr>
-            <td class="ia-table-label">⏰ تاريخ الانتهاء</td>
-            <td>
-              <input class="form-control form-control-sm" type="date" id="ia-badge-expires" value="${expVal}" style="max-width: 160px; height: 32px; font-size: 12px; padding: 2px 8px;">
-              <span style="font-size: 11px; color: var(--text-muted); margin-inline-start: 8px;">(اتركه فارغاً لشارة دائمة)</span>
-            </td>
-          </tr>
+            <!-- ── نصوص سريعة ── -->
+            <tr>
+              <td class="ia-table-label">⚡ نصوص جاهزة</td>
+              <td>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                  ${QUICK_TEXTS.map(qt => `
+                    <button type="button"
+                      class="ia-quick-chip-compact${ab.text === qt.text ? ' selected' : ''}"
+                      onclick="ph48_pickQuickText('${escAttr(qt.icon)}','${escAttr(qt.text)}','${qt.type}')">
+                      ${qt.icon} ${qt.text}
+                    </button>
+                  `).join('')}
+                  <button type="button" class="ia-quick-chip-compact" onclick="document.getElementById('ia-badge-text').focus()">
+                    ✏️ نص مخصص
+                  </button>
+                </div>
+              </td>
+            </tr>
 
-          <!-- ── معاينة ── -->
-          <tr>
-            <td class="ia-table-label">👁️ معاينة الشارة</td>
-            <td>
-              <div id="ia-badge-preview">${ph48_badgeHtml(item)}</div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <!-- ── الشارة المخصصة ── -->
+            <tr>
+              <td class="ia-table-label">✍️ الشارة والرمز</td>
+              <td>
+                <div style="display: flex; gap: 8px; align-items: center; max-width: 500px;">
+                  <div style="width: 70px; flex-shrink: 0;">
+                    <input class="form-control form-control-sm" id="ia-badge-icon" value="${escAttr(ab.icon||'')}" placeholder="⚡" style="text-align:center; font-size:14px; height: 32px; padding: 2px 4px;">
+                  </div>
+                  <div style="flex: 1;">
+                    <input class="form-control form-control-sm" id="ia-badge-text" value="${escAttr(ab.text||'')}" placeholder="مثال: كمية محدودة — أطلب الآن!" oninput="ph48_updatePreview()" style="font-size:12px; height: 32px; padding: 2px 8px;">
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ── تاريخ انتهاء الشارة ── -->
+            <tr>
+              <td class="ia-table-label">⏰ تاريخ الانتهاء</td>
+              <td>
+                <input class="form-control form-control-sm" type="date" id="ia-badge-expires" value="${expVal}" style="max-width: 160px; height: 32px; font-size: 12px; padding: 2px 8px;">
+                <span style="font-size: 11px; color: var(--text-muted); margin-inline-start: 8px;">(اتركه فارغاً لشارة دائمة)</span>
+              </td>
+            </tr>
+
+            <!-- ── معاينة ── -->
+            <tr>
+              <td class="ia-table-label">👁️ معاينة الشارة</td>
+              <td>
+                <div id="ia-badge-preview">${ph48_badgeHtml(item)}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>`;
   };
 
